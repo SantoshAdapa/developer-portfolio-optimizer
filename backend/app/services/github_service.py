@@ -122,7 +122,7 @@ async def analyze_github_profile(github_url: str) -> GitHubSummary:
                 language=repo.get("language"),
                 stars=repo.get("stargazers_count", 0),
                 forks=repo.get("forks_count", 0),
-                has_readme=not repo.get("description") is None,  # heuristic
+                has_readme=repo.get("description") is not None,  # heuristic
                 topics=repo.get("topics", []),
             )
         )

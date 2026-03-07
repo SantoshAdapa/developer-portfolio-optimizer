@@ -4,7 +4,6 @@ Uses the RAG pipeline when embeddings are available, falls back to direct
 context injection when ChromaDB is empty for the given analysis.
 """
 
-import json
 import logging
 
 import google.generativeai as genai

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 
 from app.ai.embeddings import embed_and_store_chunks
 from app.models.schemas import AnalysisResponse
