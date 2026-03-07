@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, ArrowRight, FileText, Github } from "lucide-react";
+import { Sparkles, ArrowRight, FileText, Github, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileUploader } from "@/components/upload/file-uploader";
 import { GitHubInput } from "@/components/upload/github-input";
@@ -14,6 +14,7 @@ import {
   useAnalyzeGitHub,
   useRunAnalysis,
 } from "@/hooks/use-analysis";
+import { demoProfiles } from "@/lib/demo-profiles";
 
 type Stage = "idle" | "processing" | "complete" | "error";
 
@@ -35,6 +36,33 @@ export default function AnalyzePage() {
 
   // ── Timeline ─────────────────────────────────────────────
   const { steps, completeAll } = useTimelineProgress(stage === "processing");
+
+  // ── Demo mode ────────────────────────────────────────────
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+
+  const handleTryDemo = useCallback(() => {
+    const profile = demoProfiles[0]; // Andrew Ng
+    setStage("processing");
+    setErrorMsg(null);
+
+    // Simulate processing, then navigate to demo results
+    setTimeout(() => {
+      completeAll();
+      setScore(profile.analysis.developer_score.overall);
+      setStage("complete");
+
+      setTimeout(() => {
+        router.push(`/results/${profile.analysis.analysis_id}`);
+      }, 1500);
+    }, 2000);
+  }, [completeAll, router]);
+
+  useEffect(() => {
+    if (isDemo && stage === "idle") {
+      handleTryDemo();
+    }
+  }, [isDemo, stage, handleTryDemo]);
 
   // ── Handlers ─────────────────────────────────────────────
   const handleFileSelected = useCallback(
@@ -190,7 +218,7 @@ export default function AnalyzePage() {
             </div>
 
             {/* Analyze Button */}
-            <div className="pt-2">
+            <div className="pt-2 space-y-3">
               <Button
                 variant="gradient"
                 size="lg"
@@ -211,6 +239,18 @@ export default function AnalyzePage() {
                   </>
                 )}
               </Button>
+
+              {stage === "idle" && !resumeId && !githubUsername && (
+                <Button
+                  variant="glass"
+                  size="lg"
+                  className="w-full gap-2"
+                  onClick={handleTryDemo}
+                >
+                  <Play className="h-4 w-4 text-emerald-400" />
+                  Try Demo Instead
+                </Button>
+              )}
             </div>
 
             {/* Error message at form level */}

@@ -37,12 +37,8 @@ export default function RootLayout({
         )}
       >
         <QueryProvider>
-          {/* Ambient background gradients */}
-          <div className="fixed inset-0 -z-10 overflow-hidden">
-            <div className="absolute -top-[40%] -left-[20%] h-[80%] w-[60%] rounded-full bg-blue-600/[0.07] blur-[120px]" />
-            <div className="absolute -bottom-[40%] -right-[20%] h-[80%] w-[60%] rounded-full bg-violet-600/[0.07] blur-[120px]" />
-            <div className="absolute top-[20%] right-[10%] h-[40%] w-[30%] rounded-full bg-indigo-600/[0.05] blur-[100px]" />
-          </div>
+          {/* Animated floating gradient orbs */}
+          <div className="bg-orbs"><span /></div>
 
           <div className="relative flex min-h-screen flex-col">
             <Navbar />

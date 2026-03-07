@@ -130,3 +130,66 @@
 ::selection {
   background: hsl(217 91% 60% / 0.3);
 }
+
+/* ── Floating gradient background orbs ──────────────────── */
+@keyframes float-orb-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+@keyframes float-orb-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, 25px) scale(1.08); }
+  66% { transform: translate(20px, -10px) scale(0.97); }
+}
+@keyframes float-orb-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(15px, 20px) scale(1.04); }
+}
+
+.bg-orbs {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  overflow: hidden;
+}
+.bg-orbs::before,
+.bg-orbs::after,
+.bg-orbs > span {
+  content: '';
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(120px);
+  opacity: 0.07;
+}
+.bg-orbs::before {
+  width: 600px;
+  height: 600px;
+  top: -10%;
+  left: -5%;
+  background: radial-gradient(circle, hsl(217 91% 60%) 0%, transparent 70%);
+  animation: float-orb-a 18s ease-in-out infinite;
+}
+.bg-orbs::after {
+  width: 500px;
+  height: 500px;
+  top: 40%;
+  right: -8%;
+  background: radial-gradient(circle, hsl(271 91% 65%) 0%, transparent 70%);
+  animation: float-orb-b 22s ease-in-out infinite;
+}
+.bg-orbs > span {
+  display: block;
+  width: 450px;
+  height: 450px;
+  bottom: -5%;
+  left: 35%;
+  background: radial-gradient(circle, hsl(220 70% 50%) 0%, transparent 70%);
+  animation: float-orb-c 26s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

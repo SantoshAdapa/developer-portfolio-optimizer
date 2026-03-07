@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 
 from app.ai.embeddings import embed_and_store_chunks
 from app.models.schemas import AnalysisResponse
@@ -19,6 +19,7 @@ from app.services.resume_service import (
     save_upload,
 )
 from app.services.scoring_service import compute_developer_score
+from app.utils.rate_limit import check_rate_limit
 from app.utils.validators import validate_github_url, validate_pdf_file
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ def get_analysis_store() -> dict[str, dict]:
     return _analysis_store
 
 
-@router.post("", response_model=AnalysisResponse)
+@router.post("", response_model=AnalysisResponse, dependencies=[Depends(check_rate_limit)])
 async def run_analysis(
     file: UploadFile,
     github_url: str = Form(""),

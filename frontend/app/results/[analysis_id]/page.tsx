@@ -27,6 +27,7 @@ import {
   ScoreSkeleton,
   SectionSkeleton,
 } from "@/components/results/result-skeletons";
+import { demoProfiles } from "@/lib/demo-profiles";
 import type {
   AnalysisResponse,
   BenchmarkResponse,
@@ -41,25 +42,40 @@ const sectionVariant = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, delay: i * 0.12, ease: "easeOut" },
+    transition: { duration: 0.5, delay: i * 0.08, ease: "easeOut" },
   }),
 };
+
+const sectionProps = (i: number) => ({
+  custom: i,
+  variants: sectionVariant,
+  initial: "hidden" as const,
+  whileInView: "visible" as const,
+  viewport: { once: true, margin: "-60px" },
+});
 
 export default function ResultsPage() {
   const params = useParams<{ analysis_id: string }>();
   const analysisId = params.analysis_id;
 
-  const analysis = useAnalysisResults(analysisId);
-  const portfolio = usePortfolioSuggestions(analysisId);
-  const projects = useProjectIdeas(analysisId);
-  const roadmap = useCareerRoadmap(analysisId);
-  const benchmarkQuery = useBenchmarks(analysisId);
+  // ── Demo detection ───────────────────────────────────────
+  const isDemo = analysisId.startsWith("demo-");
+  const demoProfile = isDemo
+    ? demoProfiles.find((p) => p.analysis.analysis_id === analysisId)
+    : undefined;
 
-  const data = analysis.data as AnalysisResponse | undefined;
-  const portfolioData = portfolio.data as PortfolioSuggestion[] | undefined;
-  const projectsData = projects.data as ProjectIdea[] | undefined;
-  const roadmapData = roadmap.data as CareerRoadmap | undefined;
-  const benchmarkData = benchmarkQuery.data as BenchmarkResponse | undefined;
+  // ── API queries (disabled for demo) ──────────────────────
+  const analysis = useAnalysisResults(isDemo ? undefined : analysisId);
+  const portfolio = usePortfolioSuggestions(isDemo ? undefined : analysisId);
+  const projects = useProjectIdeas(isDemo ? undefined : analysisId);
+  const roadmap = useCareerRoadmap(isDemo ? undefined : analysisId);
+  const benchmarkQuery = useBenchmarks(isDemo ? undefined : analysisId);
+
+  const data = (isDemo ? demoProfile?.analysis : analysis.data) as AnalysisResponse | undefined;
+  const portfolioData = (isDemo ? demoProfile?.suggestions : portfolio.data) as PortfolioSuggestion[] | undefined;
+  const projectsData = (isDemo ? demoProfile?.projectIdeas : projects.data) as ProjectIdea[] | undefined;
+  const roadmapData = (isDemo ? demoProfile?.roadmap : roadmap.data) as CareerRoadmap | undefined;
+  const benchmarkData = (isDemo ? undefined : benchmarkQuery.data) as BenchmarkResponse | undefined;
 
   // Build radar data from skill categories
   const radarDimensions = ["backend", "frontend", "devops", "data", "machine_learning", "documentation"];
@@ -77,7 +93,7 @@ export default function ResultsPage() {
     : undefined;
 
   // ── Error state ──────────────────────────────────────────
-  if (analysis.isError) {
+  if (!isDemo && analysis.isError) {
     return (
       <div className="mx-auto max-w-4xl px-6 py-20 text-center">
         <div className="glass-card p-10">
@@ -144,42 +160,22 @@ export default function ResultsPage() {
       {/* Stacked sections with staggered reveal */}
       <div className="space-y-6">
         {/* 1 — Developer Score */}
-        <motion.section
-          custom={0}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(0)}>
           {data ? <ScoreOverview score={data.developer_score} /> : <ScoreSkeleton />}
         </motion.section>
 
         {/* 2 — AI Confidence */}
-        <motion.section
-          custom={1}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(1)}>
           {data ? <ConfidenceMeter confidence={confidence} /> : <SectionSkeleton lines={1} />}
         </motion.section>
 
         {/* 3 — Skill Analysis */}
-        <motion.section
-          custom={2}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(2)}>
           {data ? <SkillAnalysis skills={data.skills} /> : <SectionSkeleton lines={4} />}
         </motion.section>
 
         {/* 4 — AI Insight Callouts */}
-        <motion.section
-          custom={3}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(3)}>
           {data ? (
             <InsightCallouts strengths={data.strengths} weaknesses={data.weaknesses} />
           ) : (
@@ -188,12 +184,7 @@ export default function ResultsPage() {
         </motion.section>
 
         {/* 5 — Portfolio Suggestions */}
-        <motion.section
-          custom={4}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(4)}>
           {portfolioData ? (
             <SuggestionsPanel suggestions={portfolioData} />
           ) : portfolio.isLoading ? (
@@ -202,12 +193,7 @@ export default function ResultsPage() {
         </motion.section>
 
         {/* 6 — Project Ideas */}
-        <motion.section
-          custom={5}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(5)}>
           {projectsData ? (
             <ProjectIdeas ideas={projectsData} />
           ) : projects.isLoading ? (
@@ -216,22 +202,12 @@ export default function ResultsPage() {
         </motion.section>
 
         {/* 7 — Skill Radar Chart */}
-        <motion.section
-          custom={6}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(6)}>
           {radarData ? <SkillRadarChart data={radarData} /> : <SectionSkeleton lines={3} />}
         </motion.section>
 
         {/* 8 — AI Score Explanation */}
-        <motion.section
-          custom={7}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(7)}>
           {data ? (
             <AiExplanation
               score={data.developer_score}
@@ -244,12 +220,7 @@ export default function ResultsPage() {
         </motion.section>
 
         {/* 9 — Benchmark Panel */}
-        <motion.section
-          custom={8}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(8)}>
           {benchmarkData ? (
             <BenchmarkPanel benchmark={benchmarkData} />
           ) : benchmarkQuery.isLoading ? (
@@ -258,12 +229,7 @@ export default function ResultsPage() {
         </motion.section>
 
         {/* 10 — Career Roadmap */}
-        <motion.section
-          custom={9}
-          variants={sectionVariant}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section {...sectionProps(9)}>
           {roadmapData ? (
             <CareerRoadmapSection roadmap={roadmapData} />
           ) : roadmap.isLoading ? (

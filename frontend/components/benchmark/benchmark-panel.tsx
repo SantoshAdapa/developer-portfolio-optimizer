@@ -5,7 +5,7 @@ import { BarChart3, Crown } from "lucide-react";
 import type { BenchmarkResponse } from "@/types";
 
 interface BenchmarkPanelProps {
-  benchmark: BenchmarkResponse;
+  benchmark: BenchmarkResponse | null | undefined;
 }
 
 const archetypeGradients: Record<string, string> = {
@@ -30,6 +30,15 @@ const barVariant = {
 };
 
 export function BenchmarkPanel({ benchmark }: BenchmarkPanelProps) {
+  if (!benchmark) {
+    return (
+      <div className="glass-card p-6 md:p-8 flex flex-col items-center justify-center text-center gap-3 min-h-[160px]">
+        <BarChart3 className="h-8 w-8 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground">No benchmark data available.</p>
+      </div>
+    );
+  }
+
   // Build bar entries: your score + 3 key archetypes
   const archetypeKeys = ["junior_developer", "mid_level_developer", "senior_engineer"];
   const barEntries = [

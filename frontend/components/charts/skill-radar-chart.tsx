@@ -33,6 +33,10 @@ function formatLabel(dimension: string): string {
   return DIMENSION_LABELS[dimension] || dimension.replace(/_/g, " ");
 }
 
+function normalize(value: number): number {
+  return Math.min(100, Math.max(0, value));
+}
+
 export function SkillRadarChart({
   data,
   comparisonData,
@@ -48,6 +52,7 @@ export function SkillRadarChart({
 
   const formatted = data.map((d) => ({
     ...d,
+    value: normalize(d.value),
     label: formatLabel(d.dimension),
   }));
 
@@ -55,7 +60,7 @@ export function SkillRadarChart({
   const merged = comparisonData
     ? formatted.map((d) => {
         const match = comparisonData.find((c) => c.dimension === d.dimension);
-        return { ...d, comparison: match?.value ?? 0 };
+        return { ...d, comparison: normalize(match?.value ?? 0) };
       })
     : formatted;
 

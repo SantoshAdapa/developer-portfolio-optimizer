@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, GitCompareArrows, Loader2 } from "lucide-react";
+import { ArrowLeft, AlertCircle, GitCompareArrows, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +26,7 @@ import type {
 } from "@/types";
 
 type DevKey = "a" | "b";
+type FlowStatus = "idle" | "analyzingA" | "analyzingB" | "comparing" | "complete" | "error";
 
 export default function ComparePage() {
   const [stateA, setStateA] = useState<DeveloperInputState>({
@@ -45,6 +46,8 @@ export default function ComparePage() {
   const [comparison, setComparison] = useState<CompareResponse | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
+  const [flowStatus, setFlowStatus] = useState<FlowStatus>("idle");
+  const hasCompared = useRef(false);
 
   // Helpers to update nested state
   const update = useCallback(
@@ -112,6 +115,7 @@ export default function ComparePage() {
         isRunningAnalysis: true,
         analysisError: null,
       });
+      setFlowStatus(key === "a" ? "analyzingA" : "analyzingB");
       try {
         const res = (await runAnalysis({
           resume_id: st.resumeId ?? undefined,
@@ -134,6 +138,7 @@ export default function ComparePage() {
         const message =
           err instanceof Error ? err.message : "Analysis failed";
         update(key, { isRunningAnalysis: false, analysisError: message });
+        setFlowStatus("error");
       }
     },
     [stateA, stateB, update]
@@ -144,28 +149,34 @@ export default function ComparePage() {
     if (!stateA.analysisId || !stateB.analysisId) return;
     setIsComparing(true);
     setCompareError(null);
+    setFlowStatus("comparing");
     try {
       const res = (await compareProfiles(
         stateA.analysisId,
         stateB.analysisId
       )) as CompareResponse;
       setComparison(res);
+      setFlowStatus("complete");
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Comparison failed";
       setCompareError(message);
+      setFlowStatus("error");
     } finally {
       setIsComparing(false);
     }
   }, [stateA.analysisId, stateB.analysisId]);
 
-  // Auto-trigger comparison when both analyses finish
+  // Auto-trigger comparison exactly once when both analyses finish
   const bothDone = stateA.analysisComplete && stateB.analysisComplete;
-  const shouldAutoCompare =
-    bothDone && !comparison && !isComparing && !compareError;
 
-  // Using a ref-like check so it fires once
-  if (shouldAutoCompare && stateA.analysisId && stateB.analysisId) {
+  if (
+    bothDone &&
+    !hasCompared.current &&
+    stateA.analysisId &&
+    stateB.analysisId
+  ) {
+    hasCompared.current = true;
     handleCompare();
   }
 
@@ -224,43 +235,57 @@ export default function ComparePage() {
         />
       </div>
 
-      {/* ── Comparison trigger / loading ─────────────── */}
+      {/* ── Flow status banner ──────────────────────── */}
       <AnimatePresence>
-        {bothDone && !comparison && (
+        {flowStatus !== "idle" && flowStatus !== "complete" && !comparison && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             className="flex flex-col items-center gap-4 mb-10"
           >
-            {isComparing ? (
+            {flowStatus === "analyzingA" && (
               <div className="glass-card px-8 py-6 flex items-center gap-3">
                 <Loader2 className="h-5 w-5 text-violet-400 animate-spin" />
                 <span className="text-sm font-medium text-muted-foreground">
-                  Comparing profiles...
+                  Analyzing Developer A...
                 </span>
               </div>
-            ) : compareError ? (
+            )}
+            {flowStatus === "analyzingB" && (
+              <div className="glass-card px-8 py-6 flex items-center gap-3">
+                <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                <span className="text-sm font-medium text-muted-foreground">
+                  Analyzing Developer B...
+                </span>
+              </div>
+            )}
+            {flowStatus === "comparing" && (
+              <div className="glass-card px-8 py-6 flex items-center gap-3">
+                <Loader2 className="h-5 w-5 text-violet-400 animate-spin" />
+                <span className="text-sm font-medium text-muted-foreground">
+                  Running comparison...
+                </span>
+              </div>
+            )}
+            {flowStatus === "error" && (
               <div className="glass-card px-8 py-6 text-center space-y-3">
-                <p className="text-sm text-red-400">{compareError}</p>
+                <div className="flex items-center justify-center gap-2 text-red-400">
+                  <AlertCircle className="h-4 w-4" />
+                  <p className="text-sm">{compareError || "Something went wrong."}</p>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleCompare}
+                  onClick={() => {
+                    hasCompared.current = false;
+                    setFlowStatus("idle");
+                    handleCompare();
+                  }}
                   className="text-blue-400"
                 >
                   Retry
                 </Button>
-              </div>
-            ) : (
-              /* Loading skeletons while waiting */
-              <div className="w-full space-y-4">
-                <Skeleton className="h-40 w-full rounded-2xl" />
-                <div className="grid grid-cols-2 gap-4">
-                  <Skeleton className="h-60 rounded-2xl" />
-                  <Skeleton className="h-60 rounded-2xl" />
-                </div>
-                <Skeleton className="h-32 w-full rounded-2xl" />
               </div>
             )}
           </motion.div>

@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, Github, FileText } from "lucide-react";
+import { ArrowRight, Sparkles, Github, FileText, Play } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { MagneticButton } from "@/components/ui/magnetic-button";
 
 const container = {
   hidden: { opacity: 0 },
@@ -80,19 +81,31 @@ export function HeroSection() {
             variants={item}
             className="mt-10 flex flex-col sm:flex-row items-center gap-4"
           >
-            <Button variant="gradient" size="xl" asChild>
-              <Link href="/analyze" className="gap-2">
-                <FileText className="h-5 w-5" />
-                Upload Resume
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </Link>
-            </Button>
-            <Button variant="glass" size="xl" asChild>
-              <Link href="/analyze" className="gap-2">
-                <Github className="h-5 w-5" />
-                Analyze GitHub
-              </Link>
-            </Button>
+            <MagneticButton>
+              <Button variant="gradient" size="xl" asChild>
+                <Link href="/analyze" className="gap-2">
+                  <FileText className="h-5 w-5" />
+                  Upload Resume
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Link>
+              </Button>
+            </MagneticButton>
+            <MagneticButton>
+              <Button variant="glass" size="xl" asChild>
+                <Link href="/analyze" className="gap-2">
+                  <Github className="h-5 w-5" />
+                  Analyze GitHub
+                </Link>
+              </Button>
+            </MagneticButton>
+            <MagneticButton>
+              <Button variant="glass" size="xl" asChild>
+                <Link href="/analyze?demo=true" className="gap-2">
+                  <Play className="h-5 w-5 text-emerald-400" />
+                  Try Demo
+                </Link>
+              </Button>
+            </MagneticButton>
           </motion.div>
 
           {/* Social proof */}
