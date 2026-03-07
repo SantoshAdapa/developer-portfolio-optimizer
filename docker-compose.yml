@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dpo-backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      - chromadb
+    networks:
+      - dpo-network
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    container_name: dpo-chromadb
+    ports:
+      - "${CHROMA_PORT:-8001}:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+      - IS_PERSISTENT=TRUE
+    networks:
+      - dpo-network
+    restart: unless-stopped
+
+volumes:
+  backend_uploads:
+  chroma_data:
+
+networks:
+  dpo-network:
+    driver: bridge

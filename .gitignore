@@ -1,0 +1,15 @@
+.env
+.env.local
+__pycache__/
+*.pyc
+node_modules/
+.next/
+uploads/*
+!uploads/.gitkeep
+chroma_data/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
