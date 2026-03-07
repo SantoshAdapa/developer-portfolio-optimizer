@@ -5,6 +5,7 @@ import {
   getPortfolioSuggestions,
   getProjectIdeas,
   getCareerRoadmap,
+  getBenchmarks,
 } from "@/services/api";
 
 export function usePortfolioSuggestions(analysisId: string | undefined) {
@@ -27,6 +28,14 @@ export function useCareerRoadmap(analysisId: string | undefined) {
   return useQuery({
     queryKey: ["career-roadmap", analysisId],
     queryFn: () => getCareerRoadmap(analysisId!),
+    enabled: !!analysisId,
+  });
+}
+
+export function useBenchmarks(analysisId: string | undefined) {
+  return useQuery({
+    queryKey: ["benchmarks", analysisId],
+    queryFn: () => getBenchmarks(analysisId!),
     enabled: !!analysisId,
   });
 }

@@ -136,3 +136,56 @@ export interface AnalysisState {
   analysisId?: string;
   error?: string;
 }
+
+// ─── Benchmark Types ──────────────────────────────────────────
+
+export interface ArchetypeDetail {
+  key: string;
+  label: string;
+  description: string;
+  average_overall: number;
+  fit_score: number;
+}
+
+export interface BenchmarkResponse {
+  analysis_id: string;
+  closest_archetype: string;
+  closest_archetype_label: string;
+  score_percentile: number;
+  developer_overall: number;
+  benchmark_scores: Record<string, number>;
+  archetype_details: ArchetypeDetail[];
+}
+
+// ─── Comparison Types ─────────────────────────────────────────
+
+export interface DimensionComparison {
+  dimension: string;
+  developer_a: number;
+  developer_b: number;
+  difference: number;
+}
+
+export interface SkillGapEntry {
+  skill: string;
+  present_in: "developer_a" | "developer_b";
+}
+
+export interface CompareResponse {
+  analysis_id_a: string;
+  analysis_id_b: string;
+  score_difference: number;
+  dimension_comparison: DimensionComparison[];
+  skill_gap: SkillGapEntry[];
+  github_activity_diff: number;
+  winner: "developer_a" | "developer_b" | "tie";
+  summary: string;
+}
+
+// ─── Radar Chart Types ───────────────────────────────────────
+
+export interface RadarDataPoint {
+  dimension: string;
+  value: number;
+  fullMark: number;
+}

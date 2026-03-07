@@ -1,0 +1,69 @@
+{
+  "archetypes": {
+    "junior_developer": {
+      "label": "Junior Developer",
+      "description": "Early-career developer with foundational skills and limited open-source presence.",
+      "expected_ranges": {
+        "resume_completeness": { "min": 30, "max": 55 },
+        "skill_diversity":     { "min": 20, "max": 45 },
+        "github_activity":     { "min": 10, "max": 35 },
+        "repo_quality":        { "min": 10, "max": 30 },
+        "documentation":       { "min": 10, "max": 30 },
+        "community":           { "min":  0, "max": 15 }
+      },
+      "average_overall": 28
+    },
+    "mid_level_developer": {
+      "label": "Mid-Level Developer",
+      "description": "Experienced developer with solid fundamentals and growing portfolio.",
+      "expected_ranges": {
+        "resume_completeness": { "min": 55, "max": 75 },
+        "skill_diversity":     { "min": 45, "max": 65 },
+        "github_activity":     { "min": 35, "max": 60 },
+        "repo_quality":        { "min": 30, "max": 55 },
+        "documentation":       { "min": 30, "max": 55 },
+        "community":           { "min": 15, "max": 35 }
+      },
+      "average_overall": 52
+    },
+    "senior_engineer": {
+      "label": "Senior Engineer",
+      "description": "Seasoned engineer with deep expertise, quality projects, and community visibility.",
+      "expected_ranges": {
+        "resume_completeness": { "min": 75, "max": 95 },
+        "skill_diversity":     { "min": 65, "max": 90 },
+        "github_activity":     { "min": 55, "max": 85 },
+        "repo_quality":        { "min": 60, "max": 90 },
+        "documentation":       { "min": 55, "max": 85 },
+        "community":           { "min": 35, "max": 70 }
+      },
+      "average_overall": 76
+    },
+    "ml_engineer": {
+      "label": "ML Engineer",
+      "description": "Specialist in machine learning with research-oriented projects and data tooling.",
+      "expected_ranges": {
+        "resume_completeness": { "min": 60, "max": 85 },
+        "skill_diversity":     { "min": 55, "max": 80 },
+        "github_activity":     { "min": 40, "max": 70 },
+        "repo_quality":        { "min": 45, "max": 75 },
+        "documentation":       { "min": 50, "max": 80 },
+        "community":           { "min": 20, "max": 50 }
+      },
+      "average_overall": 64
+    },
+    "open_source_contributor": {
+      "label": "Open-Source Contributor",
+      "description": "Developer with strong community engagement, many contributions, and collaborative projects.",
+      "expected_ranges": {
+        "resume_completeness": { "min": 50, "max": 75 },
+        "skill_diversity":     { "min": 50, "max": 75 },
+        "github_activity":     { "min": 70, "max": 95 },
+        "repo_quality":        { "min": 55, "max": 85 },
+        "documentation":       { "min": 60, "max": 90 },
+        "community":           { "min": 50, "max": 90 }
+      },
+      "average_overall": 72
+    }
+  }
+}

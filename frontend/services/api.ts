@@ -63,6 +63,10 @@ export async function runAnalysis(params: {
   });
 }
 
+export async function getAnalysisResults(analysisId: string) {
+  return apiFetch(`/api/v1/analyze/${encodeURIComponent(analysisId)}`);
+}
+
 // ─── Recommendations ─────────────────────────────────────────
 
 export async function getPortfolioSuggestions(analysisId: string) {
@@ -75,4 +79,22 @@ export async function getProjectIdeas(analysisId: string) {
 
 export async function getCareerRoadmap(analysisId: string) {
   return apiFetch(`/api/v1/recommendations/${encodeURIComponent(analysisId)}/roadmap`);
+}
+
+// ─── Benchmarks ───────────────────────────────────────────────
+
+export async function getBenchmarks(analysisId: string) {
+  return apiFetch(`/api/v1/benchmarks/${encodeURIComponent(analysisId)}`);
+}
+
+// ─── Comparison ───────────────────────────────────────────────
+
+export async function compareProfiles(analysisIdA: string, analysisIdB: string) {
+  return apiFetch("/api/v1/compare", {
+    method: "POST",
+    body: JSON.stringify({
+      analysis_id_a: analysisIdA,
+      analysis_id_b: analysisIdB,
+    }),
+  });
 }

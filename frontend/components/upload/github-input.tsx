@@ -62,11 +62,22 @@ export function GitHubInput({
           onChange={(e) => setValue(e.target.value)}
           disabled={isLoading}
           className={cn(
-            "h-12 pl-10 pr-4 rounded-xl bg-white/[0.03] border-white/[0.08] placeholder:text-muted-foreground/50 focus:border-blue-500/40 focus:ring-blue-500/20 transition-all",
+            "h-12 pl-10 pr-24 rounded-xl bg-white/[0.03] border-white/[0.08] placeholder:text-muted-foreground/50 focus:border-blue-500/40 focus:ring-blue-500/20 transition-all",
             isSuccess && "border-emerald-500/30",
             error && "border-red-500/30"
           )}
         />
+        <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+          <Button
+            type="submit"
+            variant="ghost"
+            size="sm"
+            disabled={!username || isLoading || isSuccess}
+            className="h-9 px-3 text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+          >
+            {isLoading ? "Checking..." : isSuccess ? "Connected" : "Connect"}
+          </Button>
+        </div>
       </div>
 
       <AnimatePresence>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   uploadResume,
   analyzeGitHub,
   runAnalysis,
+  getAnalysisResults,
 } from "@/services/api";
 
 export function useUploadResume() {
@@ -23,5 +24,13 @@ export function useRunAnalysis() {
   return useMutation({
     mutationFn: (params: { resume_id?: string; github_username?: string }) =>
       runAnalysis(params),
+  });
+}
+
+export function useAnalysisResults(analysisId: string | undefined) {
+  return useQuery({
+    queryKey: ["analysis-results", analysisId],
+    queryFn: () => getAnalysisResults(analysisId!),
+    enabled: !!analysisId,
   });
 }

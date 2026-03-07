@@ -120,3 +120,54 @@ class ProjectIdeasResponse(BaseModel):
 class CareerRoadmapResponse(BaseModel):
     analysis_id: str
     roadmap: CareerRoadmap
+
+
+# ── Comparison & Benchmarking ────────────────────────────
+
+class CompareRequest(BaseModel):
+    analysis_id_a: str
+    analysis_id_b: str
+
+
+class DimensionComparison(BaseModel):
+    dimension: str
+    developer_a: int
+    developer_b: int
+    difference: int
+
+
+class SkillGapEntry(BaseModel):
+    skill: str
+    present_in: str = Field(description="developer_a | developer_b")
+
+
+class CompareResponse(BaseModel):
+    analysis_id_a: str
+    analysis_id_b: str
+    score_difference: int
+    dimension_comparison: list[DimensionComparison] = []
+    skill_gap: list[SkillGapEntry] = []
+    github_activity_diff: int = 0
+    winner: str = Field(description="developer_a | developer_b | tie")
+    summary: str = ""
+
+
+class ArchetypeDetail(BaseModel):
+    key: str
+    label: str
+    description: str
+    average_overall: int
+    fit_score: float
+
+
+class BenchmarkResponse(BaseModel):
+    analysis_id: str
+    closest_archetype: str
+    closest_archetype_label: str
+    score_percentile: int
+    developer_overall: int
+    benchmark_scores: dict[str, float] = Field(
+        default_factory=dict,
+        description="archetype_key → fit_score (0-100)",
+    )
+    archetype_details: list[ArchetypeDetail] = []

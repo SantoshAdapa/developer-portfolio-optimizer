@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import analysis, github, recommendations, resume
+from app.api.v1 import analysis, benchmarks, compare, github, recommendations, resume
 
 v1_router = APIRouter()
 
@@ -10,3 +10,5 @@ v1_router.include_router(analysis.router, prefix="/analyze", tags=["Analysis"])
 v1_router.include_router(
     recommendations.router, prefix="/recommendations", tags=["Recommendations"]
 )
+v1_router.include_router(compare.router, prefix="/compare", tags=["Comparison"])
+v1_router.include_router(benchmarks.router, prefix="/benchmarks", tags=["Benchmarks"])
