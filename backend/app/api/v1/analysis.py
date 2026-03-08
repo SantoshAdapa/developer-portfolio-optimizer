@@ -1,10 +1,18 @@
 import asyncio
 import logging
+from typing import cast
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 
 from app.ai.embeddings import embed_and_store_chunks
-from app.models.schemas import AnalysisResponse
+from app.models.schemas import (
+    AnalysisResponse,
+    CareerRoadmap,
+    GitHubSummary,
+    ProjectIdea,
+    Skill,
+    Suggestion,
+)
 from app.services.github_service import analyze_github_profile
 from app.services.recommendation_service import (
     extract_skills_with_ai,
@@ -33,7 +41,9 @@ def get_analysis_store() -> dict[str, dict]:
     return _analysis_store
 
 
-@router.post("", response_model=AnalysisResponse, dependencies=[Depends(check_rate_limit)])
+@router.post(
+    "", response_model=AnalysisResponse, dependencies=[Depends(check_rate_limit)]
+)
 async def run_analysis(
     file: UploadFile,
     github_url: str = Form(""),
@@ -76,39 +86,59 @@ async def run_analysis(
     results = await asyncio.gather(*coros, return_exceptions=True)
 
     # Unpack skills
-    skills = results[0] if not isinstance(results[0], Exception) else []
-    if isinstance(results[0], Exception):
+    skills: list[Skill] = (
+        cast(list[Skill], results[0])
+        if not isinstance(results[0], BaseException)
+        else []
+    )
+    if isinstance(results[0], BaseException):
         logger.exception("Skill extraction failed", exc_info=results[0])
 
     # Unpack embedding result (index 1) — log but don't block
-    if isinstance(results[1], Exception):
+    if isinstance(results[1], BaseException):
         logger.warning("Embedding storage failed: %s", results[1])
 
     # Unpack GitHub (if requested)
     if github_url and len(results) > 2:
-        if isinstance(results[2], Exception):
+        if isinstance(results[2], BaseException):
             logger.exception("GitHub analysis failed", exc_info=results[2])
         else:
-            github_summary = results[2]
+            github_summary = cast(GitHubSummary, results[2])
 
     # ── Scoring ────────────────────────────────────────
     developer_score = compute_developer_score(resume_text, skills, github_summary)
 
     # ── AI recommendations (parallel, with RAG) ────────
-    suggestion_coro = generate_portfolio_suggestions(resume_text, skills, github_summary, analysis_id)
+    suggestion_coro = generate_portfolio_suggestions(
+        resume_text, skills, github_summary, analysis_id
+    )
     project_coro = generate_project_ideas(skills, github_summary, analysis_id)
-    roadmap_coro = generate_career_roadmap(resume_text, skills, github_summary, analysis_id)
+    roadmap_coro = generate_career_roadmap(
+        resume_text, skills, github_summary, analysis_id
+    )
 
     rec_results = await asyncio.gather(
         suggestion_coro, project_coro, roadmap_coro, return_exceptions=True
     )
 
-    portfolio_suggestions = rec_results[0] if not isinstance(rec_results[0], Exception) else []
-    project_ideas = rec_results[1] if not isinstance(rec_results[1], Exception) else []
-    career_roadmap = rec_results[2] if not isinstance(rec_results[2], Exception) else None
+    portfolio_suggestions: list[Suggestion] = (
+        cast(list[Suggestion], rec_results[0])
+        if not isinstance(rec_results[0], BaseException)
+        else []
+    )
+    project_ideas: list[ProjectIdea] = (
+        cast(list[ProjectIdea], rec_results[1])
+        if not isinstance(rec_results[1], BaseException)
+        else []
+    )
+    career_roadmap: CareerRoadmap | None = (
+        cast(CareerRoadmap, rec_results[2])
+        if not isinstance(rec_results[2], BaseException)
+        else None
+    )
 
     for i, r in enumerate(rec_results):
-        if isinstance(r, Exception):
+        if isinstance(r, BaseException):
             logger.exception("Recommendation generation %d failed", i, exc_info=r)
 
     # ── Persist for GET endpoints ──────────────────────

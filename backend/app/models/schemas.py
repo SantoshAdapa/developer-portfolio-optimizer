@@ -5,11 +5,13 @@ from app.models.enums import CommitFrequency, Priority, Proficiency, SkillCatego
 
 # ── Request Models ───────────────────────────────────────
 
+
 class GitHubAnalyzeRequest(BaseModel):
     github_url: HttpUrl
 
 
 # ── Shared Sub-Models ────────────────────────────────────
+
 
 class Skill(BaseModel):
     name: str
@@ -83,6 +85,7 @@ class CareerRoadmap(BaseModel):
 
 # ── Response Models ──────────────────────────────────────
 
+
 class ResumeUploadResponse(BaseModel):
     analysis_id: str
     filename: str
@@ -123,6 +126,7 @@ class CareerRoadmapResponse(BaseModel):
 
 
 # ── Comparison & Benchmarking ────────────────────────────
+
 
 class CompareRequest(BaseModel):
     analysis_id_a: str

@@ -34,6 +34,7 @@ def _configure_genai() -> None:
 
 # ── Portfolio Suggestions ────────────────────────────────
 
+
 async def generate_portfolio_suggestions(
     resume_text: str,
     skills: list[Skill],
@@ -54,7 +55,9 @@ async def generate_portfolio_suggestions(
             )
             return _parse_suggestions(raw)
         except Exception:
-            logger.warning("RAG failed for portfolio suggestions, falling back to direct")
+            logger.warning(
+                "RAG failed for portfolio suggestions, falling back to direct"
+            )
 
     # Fallback: direct context
     context = build_rag_context(
@@ -72,19 +75,22 @@ def _parse_suggestions(raw: list | dict) -> list[Suggestion]:
     suggestions: list[Suggestion] = []
     for item in items:
         try:
-            suggestions.append(Suggestion(
-                area=item["area"],
-                current_state=item["current_state"],
-                recommendation=item["recommendation"],
-                priority=Priority(item["priority"]),
-                impact=item["impact"],
-            ))
+            suggestions.append(
+                Suggestion(
+                    area=item["area"],
+                    current_state=item["current_state"],
+                    recommendation=item["recommendation"],
+                    priority=Priority(item["priority"]),
+                    impact=item["impact"],
+                )
+            )
         except (KeyError, ValueError) as e:
             logger.warning("Skipping malformed suggestion: %s", e)
     return suggestions
 
 
 # ── Project Ideas ────────────────────────────────────────
+
 
 async def generate_project_ideas(
     skills: list[Skill],
@@ -130,6 +136,7 @@ def _parse_project_ideas(raw: list | dict) -> list[ProjectIdea]:
 
 
 # ── Career Roadmap ───────────────────────────────────────
+
 
 async def generate_career_roadmap(
     resume_text: str,
@@ -177,6 +184,7 @@ def _parse_roadmap(raw: dict | list) -> CareerRoadmap:
 
 
 # ── Skill Extraction via AI ──────────────────────────────
+
 
 async def extract_skills_with_ai(resume_text: str) -> list[Skill]:
     """Use Gemini to extract structured skills from resume text."""

@@ -16,16 +16,20 @@ WEIGHTS = {
 
 # Resume sections we look for (case-insensitive substrings)
 _RESUME_SECTIONS = [
-    "summary", "objective",
-    "experience", "work",
+    "summary",
+    "objective",
+    "experience",
+    "work",
     "education",
-    "skills", "technologies",
+    "skills",
+    "technologies",
     "projects",
     "certifications",
 ]
 
 
 # ── Sub-score functions ──────────────────────────────────
+
 
 def _score_resume_completeness(resume_text: str) -> int:
     """0-100 based on how many standard resume sections are present."""
@@ -124,6 +128,7 @@ def _score_community(github: GitHubSummary | None) -> int:
 
 # ── Main scoring function ────────────────────────────────
 
+
 def compute_developer_score(
     resume_text: str,
     skills: list[Skill],
@@ -140,9 +145,7 @@ def compute_developer_score(
         "community": _score_community(github),
     }
 
-    overall = int(
-        sum(categories[k] * WEIGHTS[k] for k in WEIGHTS)
-    )
+    overall = int(sum(categories[k] * WEIGHTS[k] for k in WEIGHTS))
     overall = max(0, min(100, overall))
 
     # Build human-readable justification

@@ -8,7 +8,9 @@ from app.utils.rate_limit import check_rate_limit
 router = APIRouter()
 
 
-@router.post("", response_model=CompareResponse, dependencies=[Depends(check_rate_limit)])
+@router.post(
+    "", response_model=CompareResponse, dependencies=[Depends(check_rate_limit)]
+)
 async def compare_developers(req: CompareRequest):
     """Compare two completed analyses side-by-side."""
     store = get_analysis_store()

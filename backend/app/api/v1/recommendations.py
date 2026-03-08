@@ -44,7 +44,9 @@ async def get_career_roadmap(analysis_id: str):
     data = _get_analysis(analysis_id)
     roadmap = data.get("career_roadmap")
     if not roadmap:
-        raise HTTPException(status_code=404, detail="No roadmap generated for this analysis")
+        raise HTTPException(
+            status_code=404, detail="No roadmap generated for this analysis"
+        )
     return CareerRoadmapResponse(
         analysis_id=analysis_id,
         roadmap=roadmap,

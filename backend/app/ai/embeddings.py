@@ -39,7 +39,11 @@ async def generate_embeddings_batch(texts: list[str]) -> list[list[float]]:
         content=texts,
         task_type="retrieval_document",
     )
-    return result["embedding"]
+    embedding = result["embedding"]
+    # Gemini returns list[list[float]] for batch, list[float] for single
+    if isinstance(embedding[0], float):
+        return [embedding]  # type: ignore[list-item]
+    return embedding  # type: ignore[return-value]
 
 
 async def generate_query_embedding(text: str) -> list[float]:
@@ -74,7 +78,7 @@ async def embed_and_store_chunks(
     embeddings = await generate_embeddings_batch(chunks)
 
     ids = [f"{analysis_id}_chunk_{i}" for i in range(len(chunks))]
-    metadatas = [
+    metadatas: list[dict[str, str | int | float | bool]] = [
         {"analysis_id": analysis_id, "chunk_index": i, "source": "resume"}
         for i in range(len(chunks))
     ]

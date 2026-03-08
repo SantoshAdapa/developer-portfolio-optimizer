@@ -418,9 +418,3 @@ export const demoProfiles: DemoProfile[] = [
     roadmap: buildRoadmap("Mid-Level Fullstack Developer", "Senior Engineer"),
   },
 ];
-
-export function getDemoProfileByName(name: string): DemoProfile | undefined {
-  return demoProfiles.find(
-    (p) => p.name.toLowerCase() === name.toLowerCase()
-  );
-}

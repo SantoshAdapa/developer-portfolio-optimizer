@@ -76,7 +76,9 @@ def _compute_language_distribution(repos: list[dict]) -> dict[str, float]:
         if lang:
             counter[lang] += 1
     total = sum(counter.values()) or 1
-    return {lang: round(count / total * 100, 1) for lang, count in counter.most_common(10)}
+    return {
+        lang: round(count / total * 100, 1) for lang, count in counter.most_common(10)
+    }
 
 
 def _determine_commit_frequency(commit_dates: list[datetime]) -> CommitFrequency:
@@ -140,9 +142,7 @@ async def analyze_github_profile(github_url: str) -> GitHubSummary:
     commit_dates: list[datetime] = []
     for commits in commit_results:
         for c in commits:
-            date_str = (
-                c.get("commit", {}).get("committer", {}).get("date", "")
-            )
+            date_str = c.get("commit", {}).get("committer", {}).get("date", "")
             if date_str:
                 try:
                     commit_dates.append(

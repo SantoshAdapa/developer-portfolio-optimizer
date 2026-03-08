@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Sparkles, ArrowRight, FileText, Github, Play } from "lucide-react";
@@ -18,7 +18,7 @@ import { demoProfiles } from "@/lib/demo-profiles";
 
 type Stage = "idle" | "processing" | "complete" | "error";
 
-export default function AnalyzePage() {
+function AnalyzePageContent() {
   const router = useRouter();
 
   // ── Input state ──────────────────────────────────────────
@@ -281,5 +281,19 @@ export default function AnalyzePage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function AnalyzePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-7xl px-6 py-12 md:py-20 text-center text-muted-foreground">
+          Loading...
+        </div>
+      }
+    >
+      <AnalyzePageContent />
+    </Suspense>
   );
 }

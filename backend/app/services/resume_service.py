@@ -15,9 +15,7 @@ async def save_upload(file: UploadFile) -> tuple[str, Path]:
     content = await file.read()
 
     if len(content) > settings.max_file_size_bytes:
-        raise ValueError(
-            f"File exceeds {settings.max_file_size_mb} MB limit"
-        )
+        raise ValueError(f"File exceeds {settings.max_file_size_mb} MB limit")
 
     dest.write_bytes(content)
     return analysis_id, dest

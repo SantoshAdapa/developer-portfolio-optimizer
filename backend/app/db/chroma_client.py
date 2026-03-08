@@ -24,7 +24,11 @@ def get_chroma_client() -> chromadb.ClientAPI:
             )
             # Verify connectivity
             _client.heartbeat()
-            logger.info("Connected to ChromaDB at %s:%s", settings.chroma_host, settings.chroma_port)
+            logger.info(
+                "Connected to ChromaDB at %s:%s",
+                settings.chroma_host,
+                settings.chroma_port,
+            )
         except Exception:
             logger.warning(
                 "ChromaDB server unavailable at %s:%s — falling back to ephemeral client",

@@ -56,8 +56,7 @@ def build_rag_context(
 
     if skills:
         skill_lines = [
-            f"- {s.name} ({s.category.value}, {s.proficiency.value})"
-            for s in skills
+            f"- {s.name} ({s.category.value}, {s.proficiency.value})" for s in skills
         ]
         parts.append("## Extracted Skills\n" + "\n".join(skill_lines))
 

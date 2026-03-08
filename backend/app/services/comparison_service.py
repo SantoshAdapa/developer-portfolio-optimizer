@@ -57,14 +57,8 @@ def compare_profiles(
     names_b = _skill_names(skills_b)
 
     skill_gap = sorted(
-        [
-            {"skill": s, "present_in": "developer_a"}
-            for s in names_a - names_b
-        ]
-        + [
-            {"skill": s, "present_in": "developer_b"}
-            for s in names_b - names_a
-        ],
+        [{"skill": s, "present_in": "developer_a"} for s in names_a - names_b]
+        + [{"skill": s, "present_in": "developer_b"} for s in names_b - names_a],
         key=lambda x: x["skill"],
     )
 
