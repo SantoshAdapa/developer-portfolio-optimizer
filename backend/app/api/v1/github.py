@@ -13,9 +13,7 @@ router = APIRouter()
 # In-memory store for GitHub analysis results
 _github_store: dict[str, dict] = {}
 
-_GITHUB_USERNAME_RE = re.compile(
-    r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$"
-)
+_GITHUB_USERNAME_RE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$")
 
 
 def extract_github_username(value: str) -> str:
