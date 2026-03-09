@@ -13,7 +13,7 @@ from app.models.schemas import (
     Skill,
     Suggestion,
 )
-from app.services.github_service import analyze_github_profile
+from app.services.github_service import analyze_github_profile, extract_username
 from app.services.recommendation_service import (
     extract_skills_with_ai,
     generate_career_roadmap,
@@ -81,7 +81,7 @@ async def run_analysis(
         embed_and_store_chunks(analysis_id, resume_chunks),
     ]
     if github_url:
-        coros.append(analyze_github_profile(github_url))
+        coros.append(analyze_github_profile(extract_username(github_url)))
 
     results = await asyncio.gather(*coros, return_exceptions=True)
 

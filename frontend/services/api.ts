@@ -1,5 +1,8 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  throw new Error("NEXT_PUBLIC_API_URL is not defined");
+}
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 async function apiFetch<T>(
   endpoint: string,
   options?: RequestInit
@@ -16,7 +19,13 @@ async function apiFetch<T>(
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: "Unknown error" }));
-    throw new Error(error.detail || `API error: ${res.status}`);
+    let message = `API error: ${res.status}`;
+    if (typeof error.detail === "string") {
+      message = error.detail;
+    } else if (Array.isArray(error.detail)) {
+      message = error.detail.map((e: any) => e.msg).join("; ");
+    }
+    throw new Error(message);
   }
 
   return res.json();

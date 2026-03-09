@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 
 from app.models.enums import CommitFrequency, Priority, Proficiency, SkillCategory
 
@@ -7,7 +7,7 @@ from app.models.enums import CommitFrequency, Priority, Proficiency, SkillCatego
 
 
 class GitHubAnalyzeRequest(BaseModel):
-    github_url: HttpUrl
+    github_username: str
 
 
 # ── Shared Sub-Models ────────────────────────────────────

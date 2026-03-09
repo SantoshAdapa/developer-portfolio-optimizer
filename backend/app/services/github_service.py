@@ -104,9 +104,8 @@ def _determine_commit_frequency(commit_dates: list[datetime]) -> CommitFrequency
     return CommitFrequency.SPORADIC
 
 
-async def analyze_github_profile(github_url: str) -> GitHubSummary:
+async def analyze_github_profile(username: str) -> GitHubSummary:
     """Full GitHub profile analysis — fetches profile, repos, and commits."""
-    username = extract_username(github_url)
 
     # Parallel fetch: profile + repos
     profile_data, repos_data = await asyncio.gather(

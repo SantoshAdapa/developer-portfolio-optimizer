@@ -81,6 +81,12 @@ function AnalyzePageContent() {
     [uploadResume]
   );
 
+  const handleRemoveResume = useCallback(() => {
+    setResumeFile(null);
+    setResumeId(null);
+    uploadResume.reset();
+  }, [uploadResume]);
+
   const handleGitHubSubmit = useCallback(
     (username: string) => {
       setErrorMsg(null);
@@ -172,6 +178,7 @@ function AnalyzePageContent() {
               </div>
               <FileUploader
                 onFileSelected={handleFileSelected}
+                onRemove={handleRemoveResume}
                 isUploading={uploadResume.isPending}
                 isSuccess={!!resumeId}
                 error={
