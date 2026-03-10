@@ -330,7 +330,7 @@ def test_compute_skill_categories():
 def test_extract_programming_languages():
     skills = [_skill("Python", "language"), _skill("Java", "language")]
     langs = extract_programming_languages(skills, "python java")
-    names = {l.name for l in langs}
+    names = {lang.name for lang in langs}
     assert "Python" in names
     assert "Java" in names
 
