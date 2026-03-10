@@ -196,11 +196,20 @@ async def extract_skills_with_ai(resume_text: str) -> list[Skill]:
 
     skills: list[Skill] = []
     items = raw if isinstance(raw, list) else []
+    dropped = 0
     for item in items:
         try:
             skills.append(Skill(**item))
         except (TypeError, ValueError) as e:
-            logger.warning("Skipping malformed skill: %s", e)
+            dropped += 1
+            logger.warning("Skipping malformed skill: %s — raw: %.200s", e, item)
             continue
+
+    if dropped:
+        logger.warning(
+            "Skill extraction: %d of %d items dropped due to validation errors",
+            dropped,
+            len(items),
+        )
 
     return skills

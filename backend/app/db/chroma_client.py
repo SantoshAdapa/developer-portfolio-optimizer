@@ -30,13 +30,14 @@ def get_chroma_client() -> chromadb.ClientAPI:
                 settings.chroma_port,
             )
         except Exception:
-            logger.warning(
-                "ChromaDB server unavailable at %s:%s — falling back to ephemeral client",
+            logger.exception(
+                "ChromaDB server unavailable at %s:%s",
                 settings.chroma_host,
                 settings.chroma_port,
             )
-            _client = chromadb.EphemeralClient(
-                settings=ChromaSettings(anonymized_telemetry=False),
+            raise RuntimeError(
+                f"ChromaDB is not reachable at {settings.chroma_host}:{settings.chroma_port}. "
+                "Ensure the chromadb service is running."
             )
     return _client
 

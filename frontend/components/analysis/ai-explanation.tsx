@@ -9,12 +9,12 @@ import {
   AlertCircle,
   Compass,
 } from "lucide-react";
-import type { DeveloperScore, SkillAnalysis, GitHubInsights } from "@/types";
+import type { DeveloperScore, Skill, GitHubSummary } from "@/types";
 
 interface AiExplanationProps {
   score: DeveloperScore;
-  skills: SkillAnalysis;
-  github: GitHubInsights | null;
+  skills: Skill[];
+  github: GitHubSummary | null;
 }
 
 interface InsightItem {
@@ -27,46 +27,48 @@ interface InsightItem {
 
 function deriveStrengths(
   score: DeveloperScore,
-  skills: SkillAnalysis,
-  github: GitHubInsights | null
+  skills: Skill[],
+  github: GitHubSummary | null
 ): InsightItem[] {
   const items: InsightItem[] = [];
 
   // Strength 1 — highest scoring category
-  const sorted = [...score.categories].sort((a, b) => b.score - a.score);
+  const sorted = Object.entries(score.categories).sort(([, a], [, b]) => b - a);
   if (sorted.length > 0) {
+    const [name, value] = sorted[0];
     items.push({
       icon: Zap,
       iconBg: "bg-emerald-500/15",
       iconColor: "text-emerald-400",
       label: "Top Dimension",
-      text: `Your strongest area is ${sorted[0].name} (${sorted[0].score}/${sorted[0].max_score}), placing you well above average in this dimension.`,
+      text: `Your strongest area is ${name.replace(/_/g, " ")} (${value}/100), placing you well above average in this dimension.`,
     });
   }
 
   // Strength 2 — technical skill breadth
-  const techCount = skills.technical_skills.length;
-  if (techCount > 0) {
-    const advancedCount = skills.technical_skills.filter(
-      (s) => s.level === "advanced" || s.level === "expert"
+  const techSkills = skills.filter((s) => s.category !== "soft_skill");
+  if (techSkills.length > 0) {
+    const advancedCount = techSkills.filter(
+      (s) => s.proficiency === "advanced"
     ).length;
     items.push({
       icon: Lightbulb,
       iconBg: "bg-blue-500/15",
       iconColor: "text-blue-400",
       label: "Skill Breadth",
-      text: `You demonstrate ${techCount} technical skills with ${advancedCount} at advanced level or above — a strong indicator of engineering depth.`,
+      text: `You demonstrate ${techSkills.length} technical skills with ${advancedCount} at advanced level — a strong indicator of engineering depth.`,
     });
   }
 
-  // Strength 3 — GitHub collaboration
-  if (github && github.collaboration_score > 50) {
+  // Strength 3 — GitHub presence
+  if (github && github.total_stars > 10) {
+    const langs = Object.keys(github.top_languages).slice(0, 3).join(", ");
     items.push({
       icon: TrendingUp,
       iconBg: "bg-violet-500/15",
       iconColor: "text-violet-400",
       label: "Collaboration",
-      text: `Your collaboration score of ${github.collaboration_score} signals active community participation across ${github.top_languages.slice(0, 3).join(", ") || "multiple languages"}.`,
+      text: `Your ${github.total_stars} total stars and ${github.followers} followers signal active community participation across ${langs || "multiple languages"}.`,
     });
   } else {
     items.push({
@@ -83,31 +85,33 @@ function deriveStrengths(
 
 function deriveImprovements(
   score: DeveloperScore,
-  skills: SkillAnalysis
+  skills: Skill[]
 ): InsightItem[] {
   const items: InsightItem[] = [];
 
   // Improvement 1 — lowest scoring category
-  const sorted = [...score.categories].sort((a, b) => a.score - b.score);
+  const sorted = Object.entries(score.categories).sort(([, a], [, b]) => a - b);
   if (sorted.length > 0) {
+    const [name, value] = sorted[0];
     items.push({
       icon: AlertCircle,
       iconBg: "bg-amber-500/15",
       iconColor: "text-amber-400",
       label: "Growth Area",
-      text: `${sorted[0].name} scored ${sorted[0].score}/${sorted[0].max_score}. Focusing here could raise your overall score the most.`,
+      text: `${name.replace(/_/g, " ")} scored ${value}/100. Focusing here could raise your overall score the most.`,
     });
   }
 
-  // Improvement 2 — missing skills
-  if (skills.missing_skills.length > 0) {
-    const top3 = skills.missing_skills.slice(0, 3).map((s) => s.name);
+  // Improvement 2 — beginner-level skills
+  const beginnerSkills = skills.filter((s) => s.proficiency === "beginner");
+  if (beginnerSkills.length > 0) {
+    const top3 = beginnerSkills.slice(0, 3).map((s) => s.name);
     items.push({
       icon: Target,
       iconBg: "bg-rose-500/15",
       iconColor: "text-rose-400",
       label: "Skill Gaps",
-      text: `Consider adding ${top3.join(", ")} to strengthen your portfolio and unlock new career paths.`,
+      text: `Consider leveling up ${top3.join(", ")} to strengthen your portfolio and unlock new career paths.`,
     });
   } else {
     items.push({
@@ -124,11 +128,11 @@ function deriveImprovements(
 
 function deriveCareerSuggestion(
   score: DeveloperScore,
-  skills: SkillAnalysis
+  skills: Skill[]
 ): InsightItem {
-  const techSkills = skills.technical_skills.map((s) => s.category.toLowerCase());
-  const hasML = techSkills.some((c) => c.includes("data") || c.includes("ml"));
-  const hasCloud = techSkills.some((c) => c.includes("cloud") || c.includes("devops"));
+  const techCategories = skills.filter((s) => s.category !== "soft_skill").map((s) => s.category);
+  const hasML = techCategories.some((c) => c === "database" || c === "tool");
+  const hasCloud = techCategories.some((c) => c === "cloud");
 
   let text: string;
   if (score.overall >= 75) {

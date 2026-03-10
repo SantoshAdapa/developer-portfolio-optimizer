@@ -3,10 +3,10 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight, ChevronRight } from "lucide-react";
-import type { PortfolioSuggestion } from "@/types";
+import type { Suggestion } from "@/types";
 
 interface SuggestionsPanelProps {
-  suggestions: PortfolioSuggestion[];
+  suggestions: Suggestion[];
 }
 
 const priorityStyles: Record<string, { badge: string; bar: string }> = {
@@ -57,7 +57,7 @@ export function SuggestionsPanel({ suggestions }: SuggestionsPanelProps) {
 
           return (
             <motion.div
-              key={`${s.title}-${i}`}
+              key={`${s.area}-${i}`}
               variants={item}
               className="group"
             >
@@ -71,7 +71,7 @@ export function SuggestionsPanel({ suggestions }: SuggestionsPanelProps) {
                 />
 
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <h4 className="text-sm font-semibold">{s.title}</h4>
+                  <h4 className="text-sm font-semibold">{s.area}</h4>
                   <span
                     className={cn(
                       "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border shrink-0",
@@ -83,21 +83,20 @@ export function SuggestionsPanel({ suggestions }: SuggestionsPanelProps) {
                 </div>
 
                 <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                  {s.description}
+                  {s.recommendation}
                 </p>
 
-                {s.action_items.length > 0 && (
-                  <ul className="space-y-1.5">
-                    {s.action_items.map((action, j) => (
-                      <li
-                        key={j}
-                        className="flex items-start gap-2 text-xs text-muted-foreground/80"
-                      >
-                        <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 text-blue-400/60" />
-                        <span>{action}</span>
-                      </li>
-                    ))}
-                  </ul>
+                {s.current_state && (
+                  <p className="text-xs text-muted-foreground/60 mb-2">
+                    Current: {s.current_state}
+                  </p>
+                )}
+
+                {s.impact && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground/80">
+                    <ArrowUpRight className="h-3 w-3 text-blue-400/60" />
+                    <span>{s.impact}</span>
+                  </div>
                 )}
               </div>
             </motion.div>

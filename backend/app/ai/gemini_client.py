@@ -1,11 +1,14 @@
 """Gemini API client — wraps generation and embedding calls."""
 
+import asyncio
 import json
 import logging
 
 import google.generativeai as genai
 
 from app.config import settings
+
+GEMINI_TIMEOUT_SECONDS = 60
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,10 @@ async def generate_json(prompt: str) -> dict | list:
     """
     _ensure_configured()
     model = genai.GenerativeModel(settings.gemini_model)
-    response = await model.generate_content_async(prompt)
+    response = await asyncio.wait_for(
+        model.generate_content_async(prompt),
+        timeout=GEMINI_TIMEOUT_SECONDS,
+    )
 
     text = response.text.strip()
     # Strip markdown code fences if present
@@ -36,12 +42,19 @@ async def generate_json(prompt: str) -> dict | list:
         lines = [line for line in lines if not line.strip().startswith("```")]
         text = "\n".join(lines)
 
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        logger.error("Gemini returned non-JSON response: %.500s", text)
+        raise
 
 
 async def generate_text(prompt: str) -> str:
     """Send a prompt to Gemini and return raw text."""
     _ensure_configured()
     model = genai.GenerativeModel(settings.gemini_model)
-    response = await model.generate_content_async(prompt)
+    response = await asyncio.wait_for(
+        model.generate_content_async(prompt),
+        timeout=GEMINI_TIMEOUT_SECONDS,
+    )
     return response.text.strip()

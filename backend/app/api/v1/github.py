@@ -2,16 +2,16 @@ import logging
 import re
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.schemas import GitHubAnalysisResponse, GitHubAnalyzeRequest
 from app.services.github_service import analyze_github_profile
+from app.utils.rate_limit import check_rate_limit
+
+from app.db import store as db_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# In-memory store for GitHub analysis results
-_github_store: dict[str, dict] = {}
 
 _GITHUB_USERNAME_RE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$")
 
@@ -26,11 +26,11 @@ def extract_github_username(value: str) -> str:
     return value.lstrip("@")
 
 
-def get_github_store() -> dict[str, dict]:
-    return _github_store
-
-
-@router.post("/analyze", response_model=GitHubAnalysisResponse)
+@router.post(
+    "/analyze",
+    response_model=GitHubAnalysisResponse,
+    dependencies=[Depends(check_rate_limit)],
+)
 async def analyze_github(body: GitHubAnalyzeRequest):
     """Analyze a GitHub profile and return a summary."""
     username = extract_github_username(body.github_username)
@@ -48,7 +48,7 @@ async def analyze_github(body: GitHubAnalyzeRequest):
         raise HTTPException(status_code=502, detail="Failed to fetch GitHub data")
 
     analysis_id = uuid.uuid4().hex[:12]
-    _github_store[analysis_id] = {"summary": summary}
+    db_store.save("github", analysis_id, {"summary": summary})
 
     return GitHubAnalysisResponse(
         analysis_id=analysis_id,

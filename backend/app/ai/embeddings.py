@@ -1,5 +1,7 @@
 """Embedding service — generates vector embeddings via Gemini text-embedding-004."""
 
+import asyncio
+import functools
 import logging
 
 import google.generativeai as genai
@@ -17,10 +19,13 @@ def _ensure_configured() -> None:
 async def generate_embedding(text: str) -> list[float]:
     """Generate an embedding vector for a single text string."""
     _ensure_configured()
-    result = genai.embed_content(
-        model=f"models/{settings.gemini_embedding_model}",
-        content=text,
-        task_type="retrieval_document",
+    result = await asyncio.to_thread(
+        functools.partial(
+            genai.embed_content,
+            model=f"models/{settings.gemini_embedding_model}",
+            content=text,
+            task_type="retrieval_document",
+        )
     )
     return result["embedding"]
 
@@ -34,10 +39,13 @@ async def generate_embeddings_batch(texts: list[str]) -> list[list[float]]:
         return []
 
     _ensure_configured()
-    result = genai.embed_content(
-        model=f"models/{settings.gemini_embedding_model}",
-        content=texts,
-        task_type="retrieval_document",
+    result = await asyncio.to_thread(
+        functools.partial(
+            genai.embed_content,
+            model=f"models/{settings.gemini_embedding_model}",
+            content=texts,
+            task_type="retrieval_document",
+        )
     )
     embedding = result["embedding"]
     # Gemini returns list[list[float]] for batch, list[float] for single
@@ -49,10 +57,13 @@ async def generate_embeddings_batch(texts: list[str]) -> list[list[float]]:
 async def generate_query_embedding(text: str) -> list[float]:
     """Generate an embedding optimized for retrieval queries."""
     _ensure_configured()
-    result = genai.embed_content(
-        model=f"models/{settings.gemini_embedding_model}",
-        content=text,
-        task_type="retrieval_query",
+    result = await asyncio.to_thread(
+        functools.partial(
+            genai.embed_content,
+            model=f"models/{settings.gemini_embedding_model}",
+            content=text,
+            task_type="retrieval_query",
+        )
     )
     return result["embedding"]
 

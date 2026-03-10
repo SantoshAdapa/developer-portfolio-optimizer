@@ -47,9 +47,9 @@ jobs:
             sleep 10
 
             echo "🔍 Checking backend health..."
-            curl -f http://localhost:8000/docs > /dev/null
+            curl -sf http://localhost:8000/health > /dev/null
 
             echo "🔍 Checking frontend..."
-            curl -f http://localhost:3000 > /dev/null
+            curl -sf http://localhost:3000 > /dev/null
 
             echo "✅ Deployment successful"

@@ -31,7 +31,7 @@ import { demoProfiles } from "@/lib/demo-profiles";
 import type {
   AnalysisResponse,
   BenchmarkResponse,
-  PortfolioSuggestion,
+  Suggestion,
   ProjectIdea,
   CareerRoadmap,
   RadarDataPoint,
@@ -72,7 +72,7 @@ export default function ResultsPage() {
   const benchmarkQuery = useBenchmarks(isDemo ? undefined : analysisId);
 
   const data = (isDemo ? demoProfile?.analysis : analysis.data) as AnalysisResponse | undefined;
-  const portfolioData = (isDemo ? demoProfile?.suggestions : portfolio.data) as PortfolioSuggestion[] | undefined;
+  const portfolioData = (isDemo ? demoProfile?.suggestions : portfolio.data) as Suggestion[] | undefined;
   const projectsData = (isDemo ? demoProfile?.projectIdeas : projects.data) as ProjectIdea[] | undefined;
   const roadmapData = (isDemo ? demoProfile?.roadmap : roadmap.data) as CareerRoadmap | undefined;
   const benchmarkData = (isDemo ? undefined : benchmarkQuery.data) as BenchmarkResponse | undefined;
@@ -81,12 +81,11 @@ export default function ResultsPage() {
   const radarDimensions = ["backend", "frontend", "devops", "data", "machine_learning", "documentation"];
   const radarData: RadarDataPoint[] | undefined = data
     ? radarDimensions.map((dim) => {
-        // Try to derive a score from technical skills matching this dimension
-        const matching = data.skills.technical_skills.filter(
+        const matching = data.skills.filter(
           (s) => s.category.toLowerCase().includes(dim) || dim.includes(s.category.toLowerCase())
         );
         const value = matching.length > 0
-          ? Math.min(100, matching.length * 15 + (matching.some((s) => s.level === "advanced" || s.level === "expert") ? 25 : 0))
+          ? Math.min(100, matching.length * 15 + (matching.some((s) => s.proficiency === "advanced") ? 25 : 0))
           : 0;
         return { dimension: dim, value, fullMark: 100 };
       })
@@ -119,13 +118,26 @@ export default function ResultsPage() {
     ? Math.min(
         100,
         Math.round(
-          (data.developer_score.categories.length * 10 +
-            data.skills.technical_skills.length * 3 +
-            (data.github_insights ? 20 : 0)) *
+          (Object.keys(data.developer_score.categories).length * 10 +
+            data.skills.length * 3 +
+            (data.github_summary ? 20 : 0)) *
             0.8
         )
       )
     : 0;
+
+  // ── Derive strengths / weaknesses from score categories ──
+  const sortedCats = data
+    ? Object.entries(data.developer_score.categories).sort(([, a], [, b]) => b - a)
+    : [];
+  const strengths = sortedCats
+    .filter(([, v]) => v >= 60)
+    .slice(0, 3)
+    .map(([k, v]) => `Strong ${k.replace(/_/g, " ")} (${v}/100)`);
+  const weaknesses = sortedCats
+    .filter(([, v]) => v < 60)
+    .slice(0, 3)
+    .map(([k, v]) => `${k.replace(/_/g, " ")} needs improvement (${v}/100)`);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 md:py-20">
@@ -177,7 +189,7 @@ export default function ResultsPage() {
         {/* 4 — AI Insight Callouts */}
         <motion.section {...sectionProps(3)}>
           {data ? (
-            <InsightCallouts strengths={data.strengths} weaknesses={data.weaknesses} />
+            <InsightCallouts strengths={strengths} weaknesses={weaknesses} />
           ) : (
             <SectionSkeleton lines={3} />
           )}
@@ -212,7 +224,7 @@ export default function ResultsPage() {
             <AiExplanation
               score={data.developer_score}
               skills={data.skills}
-              github={data.github_insights}
+              github={data.github_summary}
             />
           ) : (
             <SectionSkeleton lines={4} />

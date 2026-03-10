@@ -1,10 +1,10 @@
 import type {
   AnalysisResponse,
   DeveloperScore,
-  SkillAnalysis,
-  GitHubInsights,
+  Skill,
+  GitHubSummary,
   CareerRoadmap,
-  PortfolioSuggestion,
+  Suggestion,
   ProjectIdea,
 } from "@/types";
 
@@ -12,222 +12,196 @@ export interface DemoProfile {
   name: string;
   githubUrl: string;
   analysis: AnalysisResponse;
-  suggestions: PortfolioSuggestion[];
+  suggestions: Suggestion[];
   projectIdeas: ProjectIdea[];
   roadmap: CareerRoadmap;
 }
 
 // ── Shared helpers ───────────────────────────────────────
 
-function cat(name: string, score: number, max = 100, description = "") {
-  return { name, score, max_score: max, description };
-}
-
-function skill(
+function sk(
   name: string,
-  level: "beginner" | "intermediate" | "advanced" | "expert",
-  category: string
-) {
-  return { name, level, category };
+  category: string,
+  proficiency: "beginner" | "intermediate" | "advanced",
+  source = "both"
+): Skill {
+  return { name, category, proficiency, source };
 }
 
-// ── 1. Andrew Ng – ML legend ─────────────────────────────
+// ── 1. Alex Rivera – ML Specialist ───────────────────────
 
-const andrewNgScore: DeveloperScore = {
+const alexScore: DeveloperScore = {
   overall: 92,
-  categories: [
-    cat("Resume Completeness", 95),
-    cat("Skill Diversity", 88),
-    cat("GitHub Activity", 82),
-    cat("Repo Quality", 90),
-    cat("Documentation", 96),
-    cat("Community", 94),
-  ],
+  categories: {
+    resume_completeness: 95,
+    skill_diversity: 88,
+    github_activity: 82,
+    repo_quality: 90,
+    documentation: 96,
+    community: 94,
+  },
+  justification:
+    "Score breakdown — Resume Completeness: strong (95/100); Skill Diversity: strong (88/100); GitHub Activity: strong (82/100); Repo Quality: strong (90/100); Documentation: strong (96/100); Community: strong (94/100).",
 };
 
-const andrewNgSkills: SkillAnalysis = {
-  technical_skills: [
-    skill("Python", "expert", "backend"),
-    skill("TensorFlow", "expert", "machine_learning"),
-    skill("PyTorch", "advanced", "machine_learning"),
-    skill("Deep Learning", "expert", "machine_learning"),
-    skill("NLP", "advanced", "machine_learning"),
-    skill("Computer Vision", "advanced", "machine_learning"),
-    skill("MATLAB", "advanced", "data"),
-    skill("Jupyter", "advanced", "data"),
-    skill("Docker", "intermediate", "devops"),
-  ],
-  soft_skills: [
-    skill("Technical Writing", "expert", "communication"),
-    skill("Teaching", "expert", "leadership"),
-    skill("Public Speaking", "expert", "communication"),
-  ],
-  missing_skills: [
-    skill("Kubernetes", "beginner", "devops"),
-    skill("React", "beginner", "frontend"),
-  ],
+const alexSkills: Skill[] = [
+  sk("Python", "language", "advanced"),
+  sk("TensorFlow", "framework", "advanced"),
+  sk("PyTorch", "framework", "advanced"),
+  sk("Deep Learning", "framework", "advanced"),
+  sk("NLP", "framework", "advanced"),
+  sk("Computer Vision", "framework", "advanced"),
+  sk("MATLAB", "language", "advanced"),
+  sk("Jupyter", "tool", "advanced"),
+  sk("Docker", "tool", "intermediate"),
+  sk("Technical Writing", "soft_skill", "advanced"),
+  sk("Teaching", "soft_skill", "advanced"),
+  sk("Public Speaking", "soft_skill", "advanced"),
+];
+
+const alexGitHub: GitHubSummary = {
+  username: "alexrivera",
+  avatar_url: null,
+  bio: "Machine Learning researcher and educator",
+  public_repos: 25,
+  followers: 50000,
+  top_languages: { Python: 60, "Jupyter Notebook": 25, MATLAB: 15 },
+  total_stars: 80000,
+  commit_frequency: "weekly",
+  notable_repos: [],
 };
 
-const andrewNgGitHub: GitHubInsights = {
-  activity_level: "Very Active",
-  top_languages: ["Python", "Jupyter Notebook", "MATLAB"],
-  project_diversity: 85,
-  code_quality_indicators: [
-    "Comprehensive README files",
-    "CI/CD pipelines",
-    "Unit tests",
-  ],
-  collaboration_score: 92,
-};
+// ── 2. Jordan Chen – Systems Engineer ────────────────────
 
-// ── 2. Linus Torvalds – OS legend ────────────────────────
-
-const linusScore: DeveloperScore = {
+const jordanScore: DeveloperScore = {
   overall: 96,
-  categories: [
-    cat("Resume Completeness", 90),
-    cat("Skill Diversity", 78),
-    cat("GitHub Activity", 98),
-    cat("Repo Quality", 99),
-    cat("Documentation", 92),
-    cat("Community", 99),
-  ],
+  categories: {
+    resume_completeness: 90,
+    skill_diversity: 78,
+    github_activity: 98,
+    repo_quality: 99,
+    documentation: 92,
+    community: 99,
+  },
+  justification:
+    "Score breakdown — Resume Completeness: strong (90/100); Skill Diversity: strong (78/100); GitHub Activity: strong (98/100); Repo Quality: strong (99/100); Documentation: strong (92/100); Community: strong (99/100).",
 };
 
-const linusSkills: SkillAnalysis = {
-  technical_skills: [
-    skill("C", "expert", "backend"),
-    skill("Bash", "expert", "devops"),
-    skill("Git", "expert", "devops"),
-    skill("Linux Kernel", "expert", "backend"),
-    skill("Assembly", "advanced", "backend"),
-    skill("Makefile", "expert", "devops"),
-    skill("Perl", "intermediate", "backend"),
-  ],
-  soft_skills: [
-    skill("Code Review", "expert", "leadership"),
-    skill("Technical Vision", "expert", "leadership"),
-  ],
-  missing_skills: [
-    skill("TypeScript", "beginner", "frontend"),
-    skill("Cloud Computing", "beginner", "devops"),
-    skill("Machine Learning", "beginner", "machine_learning"),
-  ],
-};
+const jordanSkills: Skill[] = [
+  sk("C", "language", "advanced"),
+  sk("Bash", "language", "advanced"),
+  sk("Git", "tool", "advanced"),
+  sk("Linux Kernel", "framework", "advanced"),
+  sk("Assembly", "language", "advanced"),
+  sk("Makefile", "tool", "advanced"),
+  sk("Perl", "language", "intermediate"),
+  sk("Code Review", "soft_skill", "advanced"),
+  sk("Technical Vision", "soft_skill", "advanced"),
+];
 
-const linusGitHub: GitHubInsights = {
-  activity_level: "Extremely Active",
-  top_languages: ["C", "Shell", "Makefile"],
-  project_diversity: 45,
-  code_quality_indicators: [
-    "World-class code review process",
-    "Extensive changelogs",
-    "Kernel-grade testing",
-  ],
-  collaboration_score: 99,
+const jordanGitHub: GitHubSummary = {
+  username: "jordanchen",
+  avatar_url: null,
+  bio: "Systems engineer and open-source contributor",
+  public_repos: 7,
+  followers: 200000,
+  top_languages: { C: 80, Shell: 15, Makefile: 5 },
+  total_stars: 180000,
+  commit_frequency: "daily",
+  notable_repos: [],
 };
 
 // ── 3. Sample ML Engineer ────────────────────────────────
 
 const mlEngScore: DeveloperScore = {
   overall: 68,
-  categories: [
-    cat("Resume Completeness", 72),
-    cat("Skill Diversity", 65),
-    cat("GitHub Activity", 58),
-    cat("Repo Quality", 70),
-    cat("Documentation", 66),
-    cat("Community", 48),
-  ],
+  categories: {
+    resume_completeness: 72,
+    skill_diversity: 65,
+    github_activity: 58,
+    repo_quality: 70,
+    documentation: 66,
+    community: 48,
+  },
+  justification:
+    "Score breakdown — Resume Completeness: moderate (72/100); Skill Diversity: moderate (65/100); GitHub Activity: moderate (58/100); Repo Quality: moderate (70/100); Documentation: moderate (66/100); Community: needs improvement (48/100).",
 };
 
-const mlEngSkills: SkillAnalysis = {
-  technical_skills: [
-    skill("Python", "advanced", "backend"),
-    skill("Scikit-learn", "advanced", "machine_learning"),
-    skill("Pandas", "advanced", "data"),
-    skill("SQL", "intermediate", "data"),
-    skill("FastAPI", "intermediate", "backend"),
-    skill("Docker", "intermediate", "devops"),
-    skill("Streamlit", "intermediate", "frontend"),
-  ],
-  soft_skills: [
-    skill("Data Storytelling", "intermediate", "communication"),
-  ],
-  missing_skills: [
-    skill("Kubernetes", "beginner", "devops"),
-    skill("React", "beginner", "frontend"),
-    skill("CI/CD", "beginner", "devops"),
-    skill("Technical Writing", "beginner", "documentation"),
-  ],
-};
+const mlEngSkills: Skill[] = [
+  sk("Python", "language", "advanced"),
+  sk("Scikit-learn", "framework", "advanced"),
+  sk("Pandas", "framework", "advanced"),
+  sk("SQL", "language", "intermediate"),
+  sk("FastAPI", "framework", "intermediate"),
+  sk("Docker", "tool", "intermediate"),
+  sk("Streamlit", "framework", "intermediate"),
+  sk("Data Storytelling", "soft_skill", "intermediate"),
+];
 
-const mlEngGitHub: GitHubInsights = {
-  activity_level: "Moderate",
-  top_languages: ["Python", "Jupyter Notebook", "SQL"],
-  project_diversity: 55,
-  code_quality_indicators: ["Decent README files", "Some tests"],
-  collaboration_score: 42,
+const mlEngGitHub: GitHubSummary = {
+  username: "demo-ml-engineer",
+  avatar_url: null,
+  bio: "ML engineer focused on NLP and data pipelines",
+  public_repos: 12,
+  followers: 45,
+  top_languages: { Python: 70, "Jupyter Notebook": 20, SQL: 10 },
+  total_stars: 35,
+  commit_frequency: "monthly",
+  notable_repos: [],
 };
 
 // ── 4. Sample Fullstack Developer ────────────────────────
 
 const fullstackScore: DeveloperScore = {
   overall: 74,
-  categories: [
-    cat("Resume Completeness", 80),
-    cat("Skill Diversity", 82),
-    cat("GitHub Activity", 70),
-    cat("Repo Quality", 68),
-    cat("Documentation", 60),
-    cat("Community", 55),
-  ],
+  categories: {
+    resume_completeness: 80,
+    skill_diversity: 82,
+    github_activity: 70,
+    repo_quality: 68,
+    documentation: 60,
+    community: 55,
+  },
+  justification:
+    "Score breakdown — Resume Completeness: strong (80/100); Skill Diversity: strong (82/100); GitHub Activity: moderate (70/100); Repo Quality: moderate (68/100); Documentation: moderate (60/100); Community: moderate (55/100).",
 };
 
-const fullstackSkills: SkillAnalysis = {
-  technical_skills: [
-    skill("TypeScript", "advanced", "frontend"),
-    skill("React", "advanced", "frontend"),
-    skill("Next.js", "advanced", "frontend"),
-    skill("Node.js", "advanced", "backend"),
-    skill("PostgreSQL", "intermediate", "data"),
-    skill("Tailwind CSS", "advanced", "frontend"),
-    skill("Docker", "intermediate", "devops"),
-    skill("AWS", "intermediate", "devops"),
-    skill("GraphQL", "intermediate", "backend"),
-    skill("Redis", "intermediate", "data"),
-  ],
-  soft_skills: [
-    skill("Agile", "intermediate", "process"),
-    skill("Code Review", "intermediate", "leadership"),
-  ],
-  missing_skills: [
-    skill("Machine Learning", "beginner", "machine_learning"),
-    skill("Terraform", "beginner", "devops"),
-  ],
-};
+const fullstackSkills: Skill[] = [
+  sk("TypeScript", "language", "advanced"),
+  sk("React", "framework", "advanced"),
+  sk("Next.js", "framework", "advanced"),
+  sk("Node.js", "framework", "advanced"),
+  sk("PostgreSQL", "database", "intermediate"),
+  sk("Tailwind CSS", "framework", "advanced"),
+  sk("Docker", "tool", "intermediate"),
+  sk("AWS", "cloud", "intermediate"),
+  sk("GraphQL", "framework", "intermediate"),
+  sk("Redis", "database", "intermediate"),
+  sk("Agile", "soft_skill", "intermediate"),
+  sk("Code Review", "soft_skill", "intermediate"),
+];
 
-const fullstackGitHub: GitHubInsights = {
-  activity_level: "Active",
-  top_languages: ["TypeScript", "JavaScript", "Python"],
-  project_diversity: 72,
-  code_quality_indicators: [
-    "ESLint configured",
-    "GitHub Actions CI",
-    "Good README files",
-  ],
-  collaboration_score: 60,
+const fullstackGitHub: GitHubSummary = {
+  username: "demo-fullstack",
+  avatar_url: null,
+  bio: "Fullstack developer building modern web applications",
+  public_repos: 22,
+  followers: 120,
+  top_languages: { TypeScript: 50, JavaScript: 30, Python: 20 },
+  total_stars: 85,
+  commit_frequency: "weekly",
+  notable_repos: [],
 };
 
 // ── Shared enrichment data ───────────────────────────────
 
-function buildSuggestions(gaps: string[]): PortfolioSuggestion[] {
+function buildSuggestions(gaps: string[]): Suggestion[] {
   return gaps.slice(0, 3).map((g, i) => ({
-    title: `Improve ${g}`,
-    description: `Adding ${g} projects or certifications would strengthen your portfolio.`,
-    priority: i === 0 ? "high" : "medium",
-    category: "skills",
-    action_items: [`Build a project using ${g}`, `Add ${g} to your resume`],
+    area: g,
+    current_state: `Limited exposure to ${g} in current portfolio.`,
+    recommendation: `Adding ${g} projects or certifications would strengthen your portfolio.`,
+    priority: (i === 0 ? "high" : "medium") as "high" | "medium",
+    impact: `Improves employability for roles requiring ${g}.`,
   }));
 }
 
@@ -236,73 +210,51 @@ function buildProjectIdeas(techs: string[][]): ProjectIdea[] {
     {
       title: "AI-powered CLI Tool",
       description: "Build a developer productivity tool with AI capabilities.",
-      difficulty: "intermediate" as const,
+      difficulty: "intermediate",
       estimated_time: "2-3 weeks",
-      impact_score: 78,
     },
     {
       title: "Real-time Dashboard",
       description: "Create a live analytics dashboard with WebSocket updates.",
-      difficulty: "intermediate" as const,
+      difficulty: "intermediate",
       estimated_time: "3-4 weeks",
-      impact_score: 72,
     },
     {
       title: "Open Source Library",
       description: "Package a common pattern into a reusable library.",
-      difficulty: "advanced" as const,
+      difficulty: "advanced",
       estimated_time: "4-6 weeks",
-      impact_score: 85,
     },
   ];
   return templates.map((t, i) => ({
     ...t,
-    technologies: techs[i] || [],
-    learning_outcomes: [`Deepen expertise in ${(techs[i] || [])[0] || "best practices"}`],
+    tech_stack: techs[i] || [],
+    skills_developed: [`Deepen expertise in ${(techs[i] || [])[0] || "best practices"}`],
   }));
 }
 
-function buildRoadmap(
-  current: string,
-  target: string
-): CareerRoadmap {
+function buildRoadmap(current: string, target: string): CareerRoadmap {
   return {
     current_level: current,
-    target_level: target,
-    timeline: "12 months",
+    target_role: target,
     milestones: [
       {
-        title: "Foundation",
-        description: "Strengthen core skills and fill gaps.",
         timeframe: "0-3 months",
+        goals: ["Strengthen core skills and fill gaps"],
         skills_to_learn: ["System Design", "Testing"],
-        projects_to_build: ["Portfolio Website"],
-        resources: [
-          {
-            title: "System Design Primer",
-            url: "https://github.com/donnemartin/system-design-primer",
-            type: "documentation",
-          },
-        ],
-        completed: false,
+        actions: ["Build a Portfolio Website", "Complete a system design course"],
       },
       {
-        title: "Growth",
-        description: "Build visibility and deepen specialisation.",
         timeframe: "3-6 months",
+        goals: ["Build visibility and deepen specialisation"],
         skills_to_learn: ["Architecture", "Mentoring"],
-        projects_to_build: ["Open Source Contribution"],
-        resources: [],
-        completed: false,
+        actions: ["Contribute to open source", "Write technical blog posts"],
       },
       {
-        title: "Leadership",
-        description: "Demonstrate technical leadership and impact.",
         timeframe: "6-12 months",
+        goals: ["Demonstrate technical leadership and impact"],
         skills_to_learn: ["Technical Writing", "Public Speaking"],
-        projects_to_build: ["Conference Talk"],
-        resources: [],
-        completed: false,
+        actions: ["Give a conference talk", "Lead a technical project"],
       },
     ],
   };
@@ -312,22 +264,16 @@ function buildRoadmap(
 
 export const demoProfiles: DemoProfile[] = [
   {
-    name: "Andrew Ng",
-    githubUrl: "https://github.com/andrewng",
+    name: "Alex Rivera",
+    githubUrl: "https://github.com/alexrivera",
     analysis: {
-      analysis_id: "demo-andrew-ng",
-      developer_score: andrewNgScore,
-      skills: andrewNgSkills,
-      github_insights: andrewNgGitHub,
-      strengths: [
-        "World-class machine learning expertise",
-        "Exceptional documentation and teaching ability",
-        "Strong community presence and collaboration",
-      ],
-      weaknesses: [
-        "Limited frontend and DevOps experience",
-        "Could diversify open-source contributions beyond ML",
-      ],
+      analysis_id: "demo-alex-rivera",
+      developer_score: alexScore,
+      skills: alexSkills,
+      github_summary: alexGitHub,
+      portfolio_suggestions: [],
+      project_ideas: [],
+      career_roadmap: null,
     },
     suggestions: buildSuggestions(["Kubernetes", "React", "Terraform"]),
     projectIdeas: buildProjectIdeas([
@@ -338,22 +284,16 @@ export const demoProfiles: DemoProfile[] = [
     roadmap: buildRoadmap("Distinguished ML Researcher", "CTO / VP Engineering"),
   },
   {
-    name: "Linus Torvalds",
-    githubUrl: "https://github.com/torvalds",
+    name: "Jordan Chen",
+    githubUrl: "https://github.com/jordanchen",
     analysis: {
-      analysis_id: "demo-linus-torvalds",
-      developer_score: linusScore,
-      skills: linusSkills,
-      github_insights: linusGitHub,
-      strengths: [
-        "Creator of Git and the Linux kernel",
-        "Unmatched system-level expertise",
-        "Highest community impact in open source",
-      ],
-      weaknesses: [
-        "Narrow technology stack focused on low-level systems",
-        "Limited experience with modern web and cloud ecosystems",
-      ],
+      analysis_id: "demo-jordan-chen",
+      developer_score: jordanScore,
+      skills: jordanSkills,
+      github_summary: jordanGitHub,
+      portfolio_suggestions: [],
+      project_ideas: [],
+      career_roadmap: null,
     },
     suggestions: buildSuggestions(["TypeScript", "Cloud Computing", "ML"]),
     projectIdeas: buildProjectIdeas([
@@ -370,17 +310,10 @@ export const demoProfiles: DemoProfile[] = [
       analysis_id: "demo-ml-engineer",
       developer_score: mlEngScore,
       skills: mlEngSkills,
-      github_insights: mlEngGitHub,
-      strengths: [
-        "Solid machine learning fundamentals",
-        "Good data engineering skills",
-        "Growing backend capabilities",
-      ],
-      weaknesses: [
-        "Limited community engagement",
-        "Needs more comprehensive documentation",
-        "Missing DevOps and deployment expertise",
-      ],
+      github_summary: mlEngGitHub,
+      portfolio_suggestions: [],
+      project_ideas: [],
+      career_roadmap: null,
     },
     suggestions: buildSuggestions(["Kubernetes", "CI/CD", "Technical Writing"]),
     projectIdeas: buildProjectIdeas([
@@ -397,17 +330,10 @@ export const demoProfiles: DemoProfile[] = [
       analysis_id: "demo-fullstack-dev",
       developer_score: fullstackScore,
       skills: fullstackSkills,
-      github_insights: fullstackGitHub,
-      strengths: [
-        "Broad full-stack skill set across frontend and backend",
-        "Good adoption of modern frameworks",
-        "Consistent GitHub activity",
-      ],
-      weaknesses: [
-        "Documentation could be more comprehensive",
-        "Limited community contributions",
-        "Missing ML and data science exposure",
-      ],
+      github_summary: fullstackGitHub,
+      portfolio_suggestions: [],
+      project_ideas: [],
+      career_roadmap: null,
     },
     suggestions: buildSuggestions(["Machine Learning", "Terraform", "Technical Writing"]),
     projectIdeas: buildProjectIdeas([

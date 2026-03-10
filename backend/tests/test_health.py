@@ -9,4 +9,8 @@ client = TestClient(app)
 
 def test_health_endpoint():
     response = client.get("/health")
-    assert response.status_code == 200
+    assert response.status_code in (200, 503)
+    body = response.json()
+    assert body["status"] in ("ok", "degraded")
+    assert "checks" in body
+    assert "sqlite" in body["checks"]

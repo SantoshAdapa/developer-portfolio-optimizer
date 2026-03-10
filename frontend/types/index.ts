@@ -8,123 +8,96 @@ export interface ApiError {
 // ─── Resume Types ─────────────────────────────────────────────
 
 export interface ResumeUploadResponse {
-  resume_id: string;
+  analysis_id: string;
   filename: string;
-  extracted_text: string;
-  skills: string[];
-  experience_years: number;
+  extracted_text_preview: string;
+  skills: Skill[];
 }
 
 // ─── GitHub Types ─────────────────────────────────────────────
 
 export interface GitHubAnalysisResponse {
-  github_username: string;
-  repositories: Repository[];
-  languages: Record<string, number>;
-  total_stars: number;
-  total_forks: number;
-  contribution_score: number;
+  analysis_id: string;
+  summary: GitHubSummary;
 }
 
-export interface Repository {
+export interface RepoSummary {
   name: string;
   description: string | null;
   language: string | null;
   stars: number;
   forks: number;
-  url: string;
+  has_readme: boolean;
   topics: string[];
+}
+
+export interface GitHubSummary {
+  username: string;
+  avatar_url: string | null;
+  bio: string | null;
+  public_repos: number;
+  followers: number;
+  top_languages: Record<string, number>;
+  total_stars: number;
+  commit_frequency: "daily" | "weekly" | "monthly" | "sporadic";
+  notable_repos: RepoSummary[];
 }
 
 // ─── Analysis Types ───────────────────────────────────────────
 
-export interface AnalysisRequest {
-  resume_id?: string;
-  github_username?: string;
-}
-
 export interface AnalysisResponse {
   analysis_id: string;
   developer_score: DeveloperScore;
-  skills: SkillAnalysis;
-  github_insights: GitHubInsights;
-  strengths: string[];
-  weaknesses: string[];
+  skills: Skill[];
+  github_summary: GitHubSummary | null;
+  portfolio_suggestions: Suggestion[];
+  project_ideas: ProjectIdea[];
+  career_roadmap: CareerRoadmap | null;
 }
 
 export interface DeveloperScore {
   overall: number;
-  categories: ScoreCategory[];
-}
-
-export interface ScoreCategory {
-  name: string;
-  score: number;
-  max_score: number;
-  description: string;
-}
-
-export interface SkillAnalysis {
-  technical_skills: Skill[];
-  soft_skills: Skill[];
-  missing_skills: Skill[];
+  categories: Record<string, number>;
+  justification: string;
 }
 
 export interface Skill {
   name: string;
-  level: "beginner" | "intermediate" | "advanced" | "expert";
   category: string;
-}
-
-export interface GitHubInsights {
-  activity_level: string;
-  top_languages: string[];
-  project_diversity: number;
-  code_quality_indicators: string[];
-  collaboration_score: number;
+  proficiency: "beginner" | "intermediate" | "advanced";
+  source: string;
 }
 
 // ─── Recommendation Types ─────────────────────────────────────
 
-export interface PortfolioSuggestion {
-  title: string;
-  description: string;
+export interface Suggestion {
+  area: string;
+  current_state: string;
+  recommendation: string;
   priority: "high" | "medium" | "low";
-  category: string;
-  action_items: string[];
+  impact: string;
 }
 
 export interface ProjectIdea {
   title: string;
   description: string;
-  difficulty: "beginner" | "intermediate" | "advanced";
-  technologies: string[];
+  tech_stack: string[];
+  difficulty: string;
   estimated_time: string;
-  impact_score: number;
-  learning_outcomes: string[];
+  skills_developed: string[];
 }
 
 export interface CareerRoadmap {
   current_level: string;
-  target_level: string;
-  timeline: string;
+  target_role: string;
   milestones: Milestone[];
 }
 
 export interface Milestone {
-  title: string;
-  description: string;
   timeframe: string;
+  goals: string[];
   skills_to_learn: string[];
-  projects_to_build: string[];
-  resources: Resource[];
-  completed: boolean;
-}
-
-export interface Resource {
-  title: string;
-  url: string;
-  type: "course" | "book" | "tutorial" | "documentation" | "tool";
+  actions: string[];
 }
 
 // ─── UI State Types ───────────────────────────────────────────
@@ -132,7 +105,6 @@ export interface Resource {
 export interface AnalysisState {
   step: "idle" | "uploading" | "analyzing" | "loading-results" | "complete" | "error";
   progress: number;
-  resumeId?: string;
   analysisId?: string;
   error?: string;
 }

@@ -129,8 +129,8 @@ class CareerRoadmapResponse(BaseModel):
 
 
 class CompareRequest(BaseModel):
-    analysis_id_a: str
-    analysis_id_b: str
+    analysis_id_a: str = Field(pattern=r"^[a-f0-9]{12}$")
+    analysis_id_b: str = Field(pattern=r"^[a-f0-9]{12}$")
 
 
 class DimensionComparison(BaseModel):

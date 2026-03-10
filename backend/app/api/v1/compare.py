@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.v1.analysis import get_analysis_store
+from app.db import store
 from app.models.schemas import CompareRequest, CompareResponse
 from app.services.comparison_service import compare_profiles
 from app.utils.rate_limit import check_rate_limit
@@ -13,16 +13,14 @@ router = APIRouter()
 )
 async def compare_developers(req: CompareRequest):
     """Compare two completed analyses side-by-side."""
-    store = get_analysis_store()
-
-    data_a = store.get(req.analysis_id_a)
+    data_a = store.load("analysis", req.analysis_id_a)
     if not data_a:
         raise HTTPException(
             status_code=404,
             detail=f"Analysis {req.analysis_id_a} not found",
         )
 
-    data_b = store.get(req.analysis_id_b)
+    data_b = store.load("analysis", req.analysis_id_b)
     if not data_b:
         raise HTTPException(
             status_code=404,

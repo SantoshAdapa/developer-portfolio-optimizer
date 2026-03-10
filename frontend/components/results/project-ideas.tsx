@@ -15,6 +15,8 @@ const difficultyStyles: Record<string, string> = {
   beginner: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
   intermediate: "bg-amber-500/15 text-amber-300 border-amber-500/20",
   advanced: "bg-red-500/15 text-red-300 border-red-500/20",
+  easy: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
+  hard: "bg-red-500/15 text-red-300 border-red-500/20",
 };
 
 const container = {
@@ -59,18 +61,12 @@ function ProjectCard({ idea }: { idea: ProjectIdeaType }) {
             {idea.estimated_time}
           </span>
         )}
-        {idea.impact_score > 0 && (
-          <span className="flex items-center gap-1">
-            <Zap className="h-3 w-3 text-amber-400" />
-            Impact: {idea.impact_score}/10
-          </span>
-        )}
       </div>
 
       {/* Tech tags */}
-      {idea.technologies.length > 0 && (
+      {idea.tech_stack.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
-          {idea.technologies.map((tech) => (
+          {idea.tech_stack.map((tech) => (
             <Badge key={tech} variant="gradient" className="text-[10px]">
               {tech}
             </Badge>
@@ -79,7 +75,7 @@ function ProjectCard({ idea }: { idea: ProjectIdeaType }) {
       )}
 
       {/* Expandable details */}
-      {idea.learning_outcomes.length > 0 && (
+      {idea.skills_developed.length > 0 && (
         <>
           <button
             onClick={() => setExpanded(!expanded)}
@@ -91,7 +87,7 @@ function ProjectCard({ idea }: { idea: ProjectIdeaType }) {
                 expanded && "rotate-180"
               )}
             />
-            {expanded ? "Hide" : "Show"} learning outcomes
+            {expanded ? "Hide" : "Show"} skills developed
           </button>
 
           <AnimatePresence>
@@ -103,7 +99,7 @@ function ProjectCard({ idea }: { idea: ProjectIdeaType }) {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden mt-2 space-y-1 pl-1"
               >
-                {idea.learning_outcomes.map((outcome, i) => (
+                {idea.skills_developed.map((outcome, i) => (
                   <li
                     key={i}
                     className="flex items-start gap-2 text-xs text-muted-foreground/80"

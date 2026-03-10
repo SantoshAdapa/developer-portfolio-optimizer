@@ -71,7 +71,7 @@ function AnalyzePageContent() {
       setErrorMsg(null);
       uploadResume.mutate(file, {
         onSuccess: (data: any) => {
-          setResumeId(data.resume_id);
+          setResumeId(data.analysis_id);
         },
         onError: (err: Error) => {
           setErrorMsg(err.message || "Failed to upload resume");
@@ -103,7 +103,7 @@ function AnalyzePageContent() {
   );
 
   const canAnalyze =
-    (resumeId || githubUsername) &&
+    resumeFile &&
     stage !== "processing" &&
     !uploadResume.isPending;
 
@@ -115,7 +115,7 @@ function AnalyzePageContent() {
 
     runAnalysis.mutate(
       {
-        resume_id: resumeId ?? undefined,
+        file: resumeFile!,
         github_username: githubUsername ?? undefined,
       },
       {

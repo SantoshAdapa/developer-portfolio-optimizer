@@ -21,8 +21,12 @@ class Settings(BaseSettings):
     upload_dir: str = str(Path(__file__).resolve().parent.parent / "uploads")
     max_file_size_mb: int = 10
 
+    # Security
+    api_key: str = ""
+    encryption_key: str = ""
+
     # CORS
-    allowed_origins: str = "http://localhost:3000,http://13.48.209.41:3000"
+    allowed_origins: str = "http://localhost:3000"
 
     @property
     def allowed_origins_list(self) -> list[str]:

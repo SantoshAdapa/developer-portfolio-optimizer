@@ -1,8 +1,4 @@
-if (!process.env.NEXT_PUBLIC_API_URL) {
-  throw new Error("NEXT_PUBLIC_API_URL is not defined");
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = "";
 async function apiFetch<T>(
   endpoint: string,
   options?: RequestInit
@@ -63,13 +59,36 @@ export async function analyzeGitHub(username: string) {
 // ─── Analysis ─────────────────────────────────────────────────
 
 export async function runAnalysis(params: {
-  resume_id?: string;
+  file: File;
   github_username?: string;
 }) {
-  return apiFetch("/api/v1/analyze", {
+  const formData = new FormData();
+  formData.append("file", params.file);
+  if (params.github_username) {
+    formData.append(
+      "github_url",
+      `https://github.com/${params.github_username}`
+    );
+  }
+
+  const url = `${API_BASE_URL}/api/v1/analyze`;
+  const res = await fetch(url, {
     method: "POST",
-    body: JSON.stringify(params),
+    body: formData,
   });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Analysis failed" }));
+    let message = `API error: ${res.status}`;
+    if (typeof error.detail === "string") {
+      message = error.detail;
+    } else if (Array.isArray(error.detail)) {
+      message = error.detail.map((e: any) => e.msg).join("; ");
+    }
+    throw new Error(message);
+  }
+
+  return res.json();
 }
 
 export async function getAnalysisResults(analysisId: string) {
@@ -79,15 +98,24 @@ export async function getAnalysisResults(analysisId: string) {
 // ─── Recommendations ─────────────────────────────────────────
 
 export async function getPortfolioSuggestions(analysisId: string) {
-  return apiFetch(`/api/v1/recommendations/${encodeURIComponent(analysisId)}/portfolio`);
+  const res = await apiFetch<{ suggestions: unknown[] }>(
+    `/api/v1/recommendations/${encodeURIComponent(analysisId)}/portfolio`
+  );
+  return res.suggestions;
 }
 
 export async function getProjectIdeas(analysisId: string) {
-  return apiFetch(`/api/v1/recommendations/${encodeURIComponent(analysisId)}/projects`);
+  const res = await apiFetch<{ project_ideas: unknown[] }>(
+    `/api/v1/recommendations/${encodeURIComponent(analysisId)}/projects`
+  );
+  return res.project_ideas;
 }
 
 export async function getCareerRoadmap(analysisId: string) {
-  return apiFetch(`/api/v1/recommendations/${encodeURIComponent(analysisId)}/roadmap`);
+  const res = await apiFetch<{ roadmap: unknown }>(
+    `/api/v1/recommendations/${encodeURIComponent(analysisId)}/roadmap`
+  );
+  return res.roadmap;
 }
 
 // ─── Benchmarks ───────────────────────────────────────────────

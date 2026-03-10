@@ -12,17 +12,31 @@ async def save_upload(file: UploadFile) -> tuple[str, Path]:
     analysis_id = uuid.uuid4().hex[:12]
     safe_name = f"{analysis_id}.pdf"
     dest = Path(settings.upload_dir) / safe_name
-    content = await file.read()
+    limit = settings.max_file_size_bytes
 
-    if len(content) > settings.max_file_size_bytes:
-        raise ValueError(f"File exceeds {settings.max_file_size_mb} MB limit")
+    # Stream in chunks to avoid reading a huge file into memory at once
+    size = 0
+    with dest.open("wb") as f:
+        while chunk := await file.read(64 * 1024):  # 64 KB chunks
+            size += len(chunk)
+            if size > limit:
+                dest.unlink(missing_ok=True)
+                raise ValueError(f"File exceeds {settings.max_file_size_mb} MB limit")
+            f.write(chunk)
 
-    dest.write_bytes(content)
     return analysis_id, dest
+
+
+_PDF_MAGIC = b"%PDF-"
 
 
 def extract_text_from_pdf(file_path: Path) -> str:
     """Extract all text from a PDF using pdfplumber."""
+    with open(file_path, "rb") as f:
+        header = f.read(5)
+    if header != _PDF_MAGIC:
+        raise ValueError("File is not a valid PDF (bad magic bytes)")
+
     pages: list[str] = []
     with pdfplumber.open(file_path) as pdf:
         for page in pdf.pages:
@@ -30,20 +44,6 @@ def extract_text_from_pdf(file_path: Path) -> str:
             if text:
                 pages.append(text)
     return "\n\n".join(pages)
-
-
-def chunk_text(text: str, chunk_size: int = 512, overlap: int = 50) -> list[str]:
-    """Split text into overlapping word-based chunks for embedding."""
-    words = text.split()
-    chunks: list[str] = []
-    start = 0
-    while start < len(words):
-        end = start + chunk_size
-        chunk = " ".join(words[start:end])
-        if chunk.strip():
-            chunks.append(chunk)
-        start += chunk_size - overlap
-    return chunks
 
 
 def cleanup_file(file_path: Path) -> None:

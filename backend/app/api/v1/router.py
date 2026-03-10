@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.api.v1 import analysis, benchmarks, compare, github, recommendations, resume
+from app.utils.auth import require_api_key
 
-v1_router = APIRouter()
+v1_router = APIRouter(dependencies=[Depends(require_api_key)])
 
 v1_router.include_router(resume.router, prefix="/resume", tags=["Resume"])
 v1_router.include_router(github.router, prefix="/github", tags=["GitHub"])

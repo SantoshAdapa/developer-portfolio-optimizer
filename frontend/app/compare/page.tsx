@@ -70,7 +70,7 @@ export default function ComparePage() {
       try {
         const res = (await uploadResume(file)) as ResumeUploadResponse;
         update(key, {
-          resumeId: res.resume_id,
+          resumeId: res.analysis_id,
           isUploadingResume: false,
           isUploadSuccess: true,
         });

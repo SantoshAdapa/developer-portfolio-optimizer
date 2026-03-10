@@ -27,7 +27,7 @@ const RADAR_DIMS = [
 
 function buildRadarData(analysis: AnalysisResponse): RadarDataPoint[] {
   return RADAR_DIMS.map((dim) => {
-    const matching = analysis.skills.technical_skills.filter(
+    const matching = analysis.skills.filter(
       (s) =>
         s.category.toLowerCase().includes(dim) ||
         dim.includes(s.category.toLowerCase())
@@ -38,7 +38,7 @@ function buildRadarData(analysis: AnalysisResponse): RadarDataPoint[] {
             100,
             matching.length * 15 +
               (matching.some(
-                (s) => s.level === "advanced" || s.level === "expert"
+                (s) => s.proficiency === "advanced"
               )
                 ? 25
                 : 0)

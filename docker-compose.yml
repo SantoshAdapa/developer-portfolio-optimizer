@@ -3,15 +3,21 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://13.48.209.41:8000
     container_name: dpo-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
-    environment:  
-      NEXT_PUBLIC_API_URL: http://13.48.209.41:8000
+    environment:
+      API_URL: http://backend:8000
+      API_KEY: ${API_KEY:-}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - dpo-network
     restart: unless-stopped
@@ -31,7 +37,14 @@ services:
     volumes:
       - backend_uploads:/app/uploads
     depends_on:
-      - chromadb
+      chromadb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - dpo-network
     restart: unless-stopped
@@ -39,8 +52,8 @@ services:
   chromadb:
     image: chromadb/chroma:0.6.3
     container_name: dpo-chromadb
-    ports:
-      - "${CHROMA_PORT:-8001}:8000"
+    expose:
+      - "8000"
     volumes:
       - chroma_data:/chroma/chroma
     environment:

@@ -9,17 +9,11 @@ from app.services.resume_service import (
     extract_text_from_pdf,
     save_upload,
 )
+from app.db import store
 from app.utils.validators import validate_pdf_file
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# In-memory store for analysis data (would be a DB in production)
-_resume_store: dict[str, dict] = {}
-
-
-def get_resume_store() -> dict[str, dict]:
-    return _resume_store
 
 
 @router.post("/upload", response_model=ResumeUploadResponse)
@@ -48,12 +42,12 @@ async def upload_resume(file: UploadFile):
         logger.exception("Skill extraction failed")
         skills = []
 
-    # Store for later use by analysis/recommendations endpoints
-    _resume_store[analysis_id] = {
+    # Persist for later use
+    store.save("resume", analysis_id, {
         "text": resume_text,
         "skills": skills,
         "filename": file.filename,
-    }
+    })
 
     # Clean up uploaded file
     cleanup_file(file_path)

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import cast
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Path, UploadFile
 
 from app.ai.embeddings import embed_and_store_chunks
 from app.models.schemas import (
@@ -21,24 +21,40 @@ from app.services.recommendation_service import (
     generate_project_ideas,
 )
 from app.services.resume_service import (
-    chunk_text,
     cleanup_file,
     extract_text_from_pdf,
     save_upload,
 )
+from app.utils.text_chunker import chunk_text
 from app.services.scoring_service import compute_developer_score
+from app.db import store
 from app.utils.rate_limit import check_rate_limit
 from app.utils.validators import validate_github_url, validate_pdf_file
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Shared store so recommendation endpoints can look up results
-_analysis_store: dict[str, dict] = {}
+
+_ANALYSIS_ID_PATTERN = r"^[a-f0-9]{12}$"
 
 
-def get_analysis_store() -> dict[str, dict]:
-    return _analysis_store
+@router.get("/{analysis_id}", response_model=AnalysisResponse)
+async def get_analysis(
+    analysis_id: str = Path(pattern=_ANALYSIS_ID_PATTERN),
+):
+    """Retrieve a previously computed analysis by ID."""
+    stored = store.load("analysis", analysis_id)
+    if not stored:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return AnalysisResponse(
+        analysis_id=analysis_id,
+        developer_score=stored["developer_score"],
+        skills=stored.get("skills", []),
+        github_summary=stored.get("github_summary"),
+        portfolio_suggestions=stored.get("portfolio_suggestions", []),
+        project_ideas=stored.get("project_ideas", []),
+        career_roadmap=stored.get("career_roadmap"),
+    )
 
 
 @router.post(
@@ -142,7 +158,7 @@ async def run_analysis(
             logger.exception("Recommendation generation %d failed", i, exc_info=r)
 
     # ── Persist for GET endpoints ──────────────────────
-    _analysis_store[analysis_id] = {
+    store.save("analysis", analysis_id, {
         "resume_text": resume_text,
         "skills": skills,
         "github_summary": github_summary,
@@ -150,7 +166,7 @@ async def run_analysis(
         "portfolio_suggestions": portfolio_suggestions,
         "project_ideas": project_ideas,
         "career_roadmap": career_roadmap,
-    }
+    })
 
     return AnalysisResponse(
         analysis_id=analysis_id,

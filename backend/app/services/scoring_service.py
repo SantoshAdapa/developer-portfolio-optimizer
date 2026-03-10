@@ -1,10 +1,31 @@
-"""Scoring service — computes a weighted developer score from resume + GitHub data."""
+"""Scoring service — computes a weighted developer score from resume + GitHub data.
+
+Scoring philosophy
+──────────────────
+Each sub-score (0-100) is computed from observable signals and then combined
+with a weighted average into a composite score.  Thresholds are calibrated so
+that a typical mid-career developer with a reasonable GitHub presence scores
+around 55-70, while an exceptional profile caps near 100.
+
+Weights (must sum to 1.0)
+────────────────────────
+  resume_completeness  0.15   Resume structure matters, but less than code.
+  skill_diversity      0.20   Breadth + depth of skills shown.
+  github_activity      0.20   Commit cadence and repo count.
+  repo_quality         0.25   Stars, language diversity, topic tagging.
+  documentation        0.10   README and description presence.
+  community            0.10   Followers + stars as community signal.
+"""
 
 from app.models.enums import CommitFrequency
 from app.models.schemas import DeveloperScore, GitHubSummary, Skill
 
 # ── Weight configuration ─────────────────────────────────
 
+# Weight configuration — values must sum to 1.0.
+# Repo quality is weighted highest because tangible code artefacts
+# are the strongest signal; documentation and community are lowest
+# because they are secondary signals.
 WEIGHTS = {
     "resume_completeness": 0.15,
     "skill_diversity": 0.20,
@@ -14,7 +35,8 @@ WEIGHTS = {
     "community": 0.10,
 }
 
-# Resume sections we look for (case-insensitive substrings)
+# Resume sections we look for (case-insensitive substrings).
+# 9 sections total → each contributes ~11% toward the 0-100 score.
 _RESUME_SECTIONS = [
     "summary",
     "objective",
@@ -41,23 +63,31 @@ def _score_resume_completeness(resume_text: str) -> int:
 
 
 def _score_skill_diversity(skills: list[Skill]) -> int:
-    """0-100 based on breadth of skill categories."""
+    """0-100 based on breadth of skill categories.
+
+    Breadth (50 pts): fraction of the 6 possible SkillCategory values covered.
+    Depth  (50 pts): unique skill count, capped at 20 for full marks.
+    """
     if not skills:
         return 0
     categories = {s.category for s in skills}
     unique_skills = len(skills)
 
-    # Breadth: how many categories covered (out of 6 possible)
+    # 6 possible categories: language, framework, tool, database, cloud, soft_skill
     breadth = len(categories) / 6 * 50
 
-    # Depth: raw skill count (cap at 20 for full marks)
+    # Cap at 20 skills — more than 20 doesn't add score (avoids inflation)
     depth = min(unique_skills / 20, 1.0) * 50
 
     return min(100, int(breadth + depth))
 
 
 def _score_github_activity(github: GitHubSummary | None) -> int:
-    """0-100 based on commit frequency and repo count."""
+    """0-100 based on commit frequency and repo count.
+
+    Frequency (50 pts): daily=50, weekly=35, monthly=20, sporadic=5.
+    Repo count (50 pts): linear up to 30 repos for full marks.
+    """
     if not github:
         return 0
 
@@ -76,7 +106,12 @@ def _score_github_activity(github: GitHubSummary | None) -> int:
 
 
 def _score_repo_quality(github: GitHubSummary | None) -> int:
-    """0-100 based on stars, language diversity, and topics usage."""
+    """0-100 based on stars, language diversity, and topics usage.
+
+    Stars       (35 pts): linear up to 100 total stars.
+    Languages   (30 pts): unique languages, capped at 5 for full marks.
+    Topics      (35 pts): fraction of repos that have topic tags.
+    """
     if not github or not github.notable_repos:
         return 0
 
@@ -113,7 +148,11 @@ def _score_documentation(github: GitHubSummary | None) -> int:
 
 
 def _score_community(github: GitHubSummary | None) -> int:
-    """0-100 based on followers and stars as community signals."""
+    """0-100 based on followers and stars as community signals.
+
+    Followers (50 pts): linear up to 50 followers.
+    Stars     (50 pts): linear up to 50 total stars.
+    """
     if not github:
         return 0
 

@@ -3,17 +3,16 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import type { SkillAnalysis as SkillAnalysisType } from "@/types";
+import type { Skill } from "@/types";
 
 interface SkillAnalysisProps {
-  skills: SkillAnalysisType;
+  skills: Skill[];
 }
 
 const levelColors: Record<string, string> = {
   beginner: "bg-zinc-500/20 text-zinc-300 border-zinc-500/20",
   intermediate: "bg-blue-500/20 text-blue-300 border-blue-500/20",
   advanced: "bg-violet-500/20 text-violet-300 border-violet-500/20",
-  expert: "bg-emerald-500/20 text-emerald-300 border-emerald-500/20",
 };
 
 const categoryColors: Record<string, string> = {
@@ -51,11 +50,13 @@ const item = {
 };
 
 export function SkillAnalysis({ skills }: SkillAnalysisProps) {
+  const technicalSkills = skills.filter((s) => s.category !== "soft_skill");
+  const softSkills = skills.filter((s) => s.category === "soft_skill");
+
   const sections = [
-    { title: "Technical Skills", data: skills.technical_skills },
-    { title: "Soft Skills", data: skills.soft_skills },
-    { title: "Skills to Develop", data: skills.missing_skills },
-  ] as const;
+    { title: "Technical Skills", data: technicalSkills },
+    { title: "Soft Skills", data: softSkills },
+  ];
 
   return (
     <div className="glass-card p-6 md:p-8 space-y-6">
@@ -87,10 +88,10 @@ export function SkillAnalysis({ skills }: SkillAnalysisProps) {
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border",
-                          levelColors[skill.level] || levelColors.beginner
+                          levelColors[skill.proficiency] || levelColors.beginner
                         )}
                       >
-                        {skill.level}
+                        {skill.proficiency}
                       </span>
                       {skill.category && (
                         <span

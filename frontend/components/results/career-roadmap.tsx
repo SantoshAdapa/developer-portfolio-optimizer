@@ -1,8 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
-import { Check, Circle } from "lucide-react";
+import { Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { CareerRoadmap, Milestone } from "@/types";
 
@@ -35,26 +34,12 @@ function MilestoneCard({
       {/* Timeline connector */}
       <div className="flex flex-col items-center">
         <div
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-full shrink-0 ring-2",
-            milestone.completed
-              ? "bg-emerald-500/20 ring-emerald-500/40"
-              : "bg-white/[0.04] ring-white/[0.1]"
-          )}
+          className="flex h-8 w-8 items-center justify-center rounded-full shrink-0 ring-2 bg-white/[0.04] ring-white/[0.1]"
         >
-          {milestone.completed ? (
-            <Check className="h-4 w-4 text-emerald-400" />
-          ) : (
-            <Circle className="h-3 w-3 text-muted-foreground/40" />
-          )}
+          <Circle className="h-3 w-3 text-muted-foreground/40" />
         </div>
         {!isLast && (
-          <div
-            className={cn(
-              "w-[2px] flex-1 min-h-[40px]",
-              milestone.completed ? "bg-emerald-500/30" : "bg-white/[0.06]"
-            )}
-          />
+          <div className="w-[2px] flex-1 min-h-[40px] bg-white/[0.06]" />
         )}
       </div>
 
@@ -63,7 +48,9 @@ function MilestoneCard({
         <div className="glass-card-hover p-5">
           {/* Header */}
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h4 className="text-sm font-semibold">{milestone.title}</h4>
+            <h4 className="text-sm font-semibold">
+              {milestone.goals[0] || milestone.timeframe}
+            </h4>
             {milestone.timeframe && (
               <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0">
                 {milestone.timeframe}
@@ -71,9 +58,18 @@ function MilestoneCard({
             )}
           </div>
 
-          <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-            {milestone.description}
-          </p>
+          {milestone.goals.length > 1 && (
+            <ul className="space-y-1 mb-3">
+              {milestone.goals.slice(1).map((goal) => (
+                <li
+                  key={goal}
+                  className="text-sm text-muted-foreground leading-relaxed"
+                >
+                  {goal}
+                </li>
+              ))}
+            </ul>
+          )}
 
           {/* Skills to learn */}
           {milestone.skills_to_learn.length > 0 && (
@@ -86,19 +82,19 @@ function MilestoneCard({
             </div>
           )}
 
-          {/* Projects to build */}
-          {milestone.projects_to_build.length > 0 && (
+          {/* Actions */}
+          {milestone.actions.length > 0 && (
             <div className="space-y-1 mt-2">
               <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
-                Build
+                Actions
               </p>
-              {milestone.projects_to_build.map((proj) => (
+              {milestone.actions.map((action) => (
                 <p
-                  key={proj}
+                  key={action}
                   className="text-xs text-muted-foreground/80 flex items-center gap-1.5"
                 >
                   <span className="h-1 w-1 rounded-full bg-violet-400/60 shrink-0" />
-                  {proj}
+                  {action}
                 </p>
               ))}
             </div>
@@ -122,20 +118,15 @@ export function CareerRoadmapSection({ roadmap }: CareerRoadmapSectionProps) {
           <span>{roadmap.current_level}</span>
           <span className="text-blue-400">→</span>
           <span className="text-foreground font-medium">
-            {roadmap.target_level}
+            {roadmap.target_role}
           </span>
-          {roadmap.timeline && (
-            <span className="ml-1 text-muted-foreground/40">
-              ({roadmap.timeline})
-            </span>
-          )}
         </div>
       </div>
 
       <motion.div variants={container} initial="hidden" animate="visible">
         {roadmap.milestones.map((milestone, i) => (
           <MilestoneCard
-            key={`${milestone.title}-${i}`}
+            key={`${milestone.timeframe}-${i}`}
             milestone={milestone}
             isLast={i === roadmap.milestones.length - 1}
           />

@@ -64,16 +64,16 @@ export function ScoreOverview({ score }: ScoreOverviewProps) {
             Score Breakdown
           </h3>
 
-          {score.categories.map((cat) => {
-            const pct = Math.round((cat.score / cat.max_score) * 100);
-            const gradient = getBarGradient(cat.name);
+          {Object.entries(score.categories).map(([name, value]) => {
+            const displayName = name.replace(/_/g, " ");
+            const gradient = getBarGradient(displayName);
 
             return (
-              <motion.div key={cat.name} variants={barVariant} className="space-y-1.5">
+              <motion.div key={name} variants={barVariant} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium capitalize">{cat.name}</span>
+                  <span className="font-medium capitalize">{displayName}</span>
                   <span className="text-muted-foreground tabular-nums">
-                    {cat.score}/{cat.max_score}
+                    {value}/100
                   </span>
                 </div>
                 <div className="h-2.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
@@ -83,7 +83,7 @@ export function ScoreOverview({ score }: ScoreOverviewProps) {
                       gradient
                     )}
                     initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
+                    animate={{ width: `${value}%` }}
                     transition={{
                       duration: 1.2,
                       ease: [0.22, 1, 0.36, 1],
@@ -91,11 +91,6 @@ export function ScoreOverview({ score }: ScoreOverviewProps) {
                     }}
                   />
                 </div>
-                {cat.description && (
-                  <p className="text-xs text-muted-foreground/60">
-                    {cat.description}
-                  </p>
-                )}
               </motion.div>
             );
           })}
