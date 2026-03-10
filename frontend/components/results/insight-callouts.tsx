@@ -1,11 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Zap, AlertTriangle, Rocket } from "lucide-react";
+import { Zap, AlertTriangle, Rocket, Lightbulb } from "lucide-react";
+import type { AiInsights } from "@/types";
 
 interface InsightCalloutsProps {
   strengths: string[];
   weaknesses: string[];
+  aiInsights?: AiInsights | null;
 }
 
 const cards = [
@@ -52,7 +54,10 @@ const item = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
 };
 
-export function InsightCallouts({ strengths, weaknesses }: InsightCalloutsProps) {
+export function InsightCallouts({ strengths, weaknesses, aiInsights }: InsightCalloutsProps) {
+  const careerPotential = aiInsights?.career_potential;
+  const improvements = aiInsights?.recommended_improvements ?? [];
+
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -79,12 +84,39 @@ export function InsightCallouts({ strengths, weaknesses }: InsightCalloutsProps)
                 <span className="text-sm font-semibold">{card.title}</span>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {card.getContent(strengths, weaknesses)}
+                {card.key === "potential" && careerPotential
+                  ? careerPotential
+                  : card.getContent(strengths, weaknesses)}
               </p>
             </div>
           </motion.div>
         ))}
       </motion.div>
+
+      {/* Recommended Improvements */}
+      {improvements.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="glass-card-hover p-5"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15">
+              <Lightbulb className="h-4 w-4 text-indigo-400" />
+            </div>
+            <span className="text-sm font-semibold">Recommended Improvements</span>
+          </div>
+          <ul className="space-y-2">
+            {improvements.map((imp, i) => (
+              <li key={i} className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
+                <span className="text-indigo-400 mt-0.5 shrink-0">•</span>
+                {imp}
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+      )}
     </div>
   );
 }

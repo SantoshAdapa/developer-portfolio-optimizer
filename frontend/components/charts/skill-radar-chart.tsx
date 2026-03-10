@@ -32,6 +32,8 @@ const DIMENSION_LABELS: Record<string, string> = {
   devops: "DevOps",
   data: "Data",
   machine_learning: "ML / AI",
+  ml_ai: "ML / AI",
+  docs: "Docs",
 };
 
 function formatLabel(dimension: string): string {

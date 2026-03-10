@@ -83,6 +83,48 @@ class CareerRoadmap(BaseModel):
     milestones: list[Milestone] = []
 
 
+class ProgrammingLanguageScore(BaseModel):
+    name: str
+    proficiency: Proficiency
+    confidence: float = Field(ge=0, le=1)
+    context: str = ""
+
+
+class SkillCategoryBreakdown(BaseModel):
+    category: str
+    skills: list[str] = []
+    score: int = Field(ge=0, le=100)
+
+
+class RadarScores(BaseModel):
+    frontend: int = 0
+    backend: int = 0
+    data: int = 0
+    ml_ai: int = 0
+    devops: int = 0
+    docs: int = 0
+
+
+class AiInsights(BaseModel):
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    career_potential: str = ""
+    recommended_improvements: list[str] = []
+
+
+class ScoreBreakdown(BaseModel):
+    resume_completeness: int = 0
+    content_quality: int = 0
+    skill_diversity: int = 0
+    formatting_quality: int = 0
+    impact_quantification: int = 0
+    keyword_density: int = 0
+    github_activity: int | None = None
+    repo_quality: int | None = None
+    documentation: int | None = None
+    community: int | None = None
+
+
 # ── Response Models ──────────────────────────────────────
 
 
@@ -104,6 +146,11 @@ class AnalysisResponse(BaseModel):
     analysis_id: str
     developer_score: DeveloperScore
     skills: list[Skill] = []
+    skill_categories: list[SkillCategoryBreakdown] = []
+    radar_scores: RadarScores | None = None
+    programming_languages: list[ProgrammingLanguageScore] = []
+    ai_insights: AiInsights | None = None
+    score_breakdown: ScoreBreakdown | None = None
     github_summary: GitHubSummary | None = None
     portfolio_suggestions: list[Suggestion] = []
     project_ideas: list[ProjectIdea] = []

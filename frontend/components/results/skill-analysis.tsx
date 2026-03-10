@@ -3,10 +3,11 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import type { Skill } from "@/types";
+import type { Skill, ProgrammingLanguageScore } from "@/types";
 
 interface SkillAnalysisProps {
   skills: Skill[];
+  programmingLanguages?: ProgrammingLanguageScore[];
 }
 
 const levelColors: Record<string, string> = {
@@ -49,7 +50,7 @@ const item = {
   visible: { opacity: 1, scale: 1, transition: { duration: 0.35 } },
 };
 
-export function SkillAnalysis({ skills }: SkillAnalysisProps) {
+export function SkillAnalysis({ skills, programmingLanguages }: SkillAnalysisProps) {
   const technicalSkills = skills.filter((s) => s.category !== "soft_skill");
   const softSkills = skills.filter((s) => s.category === "soft_skill");
 
@@ -63,6 +64,52 @@ export function SkillAnalysis({ skills }: SkillAnalysisProps) {
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
         Skill Analysis
       </h3>
+
+      {/* Programming Languages Section */}
+      {programmingLanguages && programmingLanguages.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-xs font-medium text-muted-foreground/70">
+            Programming Languages
+          </h4>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="visible"
+            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {programmingLanguages.map((lang) => (
+              <motion.div
+                key={lang.name}
+                variants={item}
+                className="glass-card-hover px-4 py-3 !rounded-xl"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold">{lang.name}</span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border",
+                      levelColors[lang.proficiency] || levelColors.beginner
+                    )}
+                  >
+                    {lang.proficiency}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.round(lang.confidence * 100)}%` }}
+                    transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {Math.round(lang.confidence * 100)}% confidence
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      )}
 
       {sections.map(
         (section) =>

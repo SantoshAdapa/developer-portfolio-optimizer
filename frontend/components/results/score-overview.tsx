@@ -11,7 +11,11 @@ interface ScoreOverviewProps {
 
 const barColors: Record<string, string> = {
   "resume completeness": "from-blue-500 to-cyan-400",
+  "content quality": "from-teal-500 to-emerald-400",
   "skill diversity": "from-violet-500 to-purple-400",
+  "formatting quality": "from-fuchsia-500 to-pink-400",
+  "impact quantification": "from-orange-500 to-amber-400",
+  "keyword density": "from-lime-500 to-green-400",
   "github activity": "from-emerald-500 to-green-400",
   "repo quality": "from-amber-500 to-yellow-400",
   documentation: "from-pink-500 to-rose-400",

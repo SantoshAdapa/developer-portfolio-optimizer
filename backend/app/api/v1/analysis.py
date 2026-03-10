@@ -27,7 +27,15 @@ from app.services.resume_service import (
     save_upload,
 )
 from app.utils.text_chunker import chunk_text
-from app.services.scoring_service import compute_developer_score
+from app.services.scoring_service import (
+    build_score_breakdown,
+    compute_developer_score,
+    compute_radar_scores,
+    compute_skill_categories,
+    extract_programming_languages,
+    extract_skills_from_text,
+    generate_ai_insights,
+)
 from app.db import store
 from app.utils.rate_limit import check_rate_limit
 from app.utils.validators import validate_github_url, validate_pdf_file
@@ -51,6 +59,11 @@ async def get_analysis(
         analysis_id=analysis_id,
         developer_score=stored["developer_score"],
         skills=stored.get("skills", []),
+        skill_categories=stored.get("skill_categories", []),
+        radar_scores=stored.get("radar_scores"),
+        programming_languages=stored.get("programming_languages", []),
+        ai_insights=stored.get("ai_insights"),
+        score_breakdown=stored.get("score_breakdown"),
         github_summary=stored.get("github_summary"),
         portfolio_suggestions=stored.get("portfolio_suggestions", []),
         project_ideas=stored.get("project_ideas", []),
@@ -132,6 +145,15 @@ async def run_analysis(
         else:
             skills = cast(list[Skill], result_map["skills"])
 
+    # Fallback: text-based skill extraction if AI produced few results
+    if len(skills) < 5 and resume_text:
+        text_skills = extract_skills_from_text(resume_text)
+        existing_names = {s.name.lower() for s in skills}
+        for ts in text_skills:
+            if ts.name.lower() not in existing_names:
+                skills.append(ts)
+                existing_names.add(ts.name.lower())
+
     # Unpack embedding result — log but don't block
     if "embed" in result_map and isinstance(result_map["embed"], BaseException):
         logger.warning("Embedding storage failed: %s", result_map["embed"])
@@ -145,6 +167,17 @@ async def run_analysis(
 
     # ── Scoring ────────────────────────────────────────
     developer_score = compute_developer_score(resume_text, skills, github_summary)
+
+    # ── Enhanced analysis data ───────────────────────
+    radar_scores = compute_radar_scores(skills, resume_text)
+    skill_categories = compute_skill_categories(skills)
+    programming_languages = extract_programming_languages(skills, resume_text)
+    score_breakdown = build_score_breakdown(
+        developer_score.categories, github_summary is not None
+    )
+    ai_insights = generate_ai_insights(
+        developer_score.categories, skills, github_summary, developer_score.overall
+    )
 
     # ── AI recommendations (parallel, with RAG) ────────
     suggestion_coro = generate_portfolio_suggestions(
@@ -186,6 +219,11 @@ async def run_analysis(
         {
             "resume_text": resume_text,
             "skills": skills,
+            "skill_categories": skill_categories,
+            "radar_scores": radar_scores,
+            "programming_languages": programming_languages,
+            "ai_insights": ai_insights,
+            "score_breakdown": score_breakdown,
             "github_summary": github_summary,
             "developer_score": developer_score,
             "portfolio_suggestions": portfolio_suggestions,
@@ -198,6 +236,11 @@ async def run_analysis(
         analysis_id=analysis_id,
         developer_score=developer_score,
         skills=skills,
+        skill_categories=skill_categories,
+        radar_scores=radar_scores,
+        programming_languages=programming_languages,
+        ai_insights=ai_insights,
+        score_breakdown=score_breakdown,
         github_summary=github_summary,
         portfolio_suggestions=portfolio_suggestions,
         project_ideas=project_ideas,

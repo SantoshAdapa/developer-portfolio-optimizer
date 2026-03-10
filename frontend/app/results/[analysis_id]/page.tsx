@@ -77,8 +77,16 @@ export default function ResultsPage() {
   const roadmapData = (isDemo ? demoProfile?.roadmap : roadmap.data) as CareerRoadmap | undefined;
   const benchmarkData = (isDemo ? undefined : benchmarkQuery.data) as BenchmarkResponse | undefined;
 
-  // Build radar data from score categories (only active ones are present)
-  const radarData: RadarDataPoint[] | undefined = data
+  // Build radar data from radar_scores (skill distribution) or fall back to score categories
+  const radarData: RadarDataPoint[] | undefined = data?.radar_scores
+    ? Object.entries(data.radar_scores)
+        .filter(([, value]) => typeof value === "number")
+        .map(([dim, value]) => ({
+          dimension: dim,
+          value: value as number,
+          fullMark: 100,
+        }))
+    : data
     ? Object.entries(data.developer_score.categories).map(([dim, value]) => ({
         dimension: dim,
         value,
@@ -121,18 +129,23 @@ export default function ResultsPage() {
       )
     : 0;
 
-  // ── Derive strengths / weaknesses from score categories ──
-  const sortedCats = data
-    ? Object.entries(data.developer_score.categories).sort(([, a], [, b]) => b - a)
-    : [];
-  const strengths = sortedCats
-    .filter(([, v]) => v >= 60)
-    .slice(0, 3)
-    .map(([k, v]) => `Strong ${k.replace(/_/g, " ")} (${v}/100)`);
-  const weaknesses = sortedCats
-    .filter(([, v]) => v < 60)
-    .slice(0, 3)
-    .map(([k, v]) => `${k.replace(/_/g, " ")} needs improvement (${v}/100)`);
+  // ── Derive strengths / weaknesses from AI insights or score categories ──
+  const strengths = data?.ai_insights?.strengths ??
+    (data
+      ? Object.entries(data.developer_score.categories)
+          .sort(([, a], [, b]) => b - a)
+          .filter(([, v]) => v >= 60)
+          .slice(0, 3)
+          .map(([k, v]) => `Strong ${k.replace(/_/g, " ")} (${v}/100)`)
+      : []);
+  const weaknesses = data?.ai_insights?.weaknesses ??
+    (data
+      ? Object.entries(data.developer_score.categories)
+          .sort(([, a], [, b]) => a - b)
+          .filter(([, v]) => v < 60)
+          .slice(0, 3)
+          .map(([k, v]) => `${k.replace(/_/g, " ")} needs improvement (${v}/100)`)
+      : []);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 md:py-20">
@@ -178,13 +191,24 @@ export default function ResultsPage() {
 
         {/* 3 — Skill Analysis */}
         <motion.section {...sectionProps(2)}>
-          {data ? <SkillAnalysis skills={data.skills} /> : <SectionSkeleton lines={4} />}
+          {data ? (
+            <SkillAnalysis
+              skills={data.skills}
+              programmingLanguages={data.programming_languages}
+            />
+          ) : (
+            <SectionSkeleton lines={4} />
+          )}
         </motion.section>
 
         {/* 4 — AI Insight Callouts */}
         <motion.section {...sectionProps(3)}>
           {data ? (
-            <InsightCallouts strengths={strengths} weaknesses={weaknesses} />
+            <InsightCallouts
+              strengths={strengths}
+              weaknesses={weaknesses}
+              aiInsights={data.ai_insights}
+            />
           ) : (
             <SectionSkeleton lines={3} />
           )}

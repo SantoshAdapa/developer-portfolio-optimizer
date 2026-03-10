@@ -49,6 +49,11 @@ export interface AnalysisResponse {
   analysis_id: string;
   developer_score: DeveloperScore;
   skills: Skill[];
+  skill_categories: SkillCategoryBreakdown[];
+  radar_scores: RadarScores | null;
+  programming_languages: ProgrammingLanguageScore[];
+  ai_insights: AiInsights | null;
+  score_breakdown: ScoreBreakdown | null;
   github_summary: GitHubSummary | null;
   portfolio_suggestions: Suggestion[];
   project_ideas: ProjectIdea[];
@@ -91,6 +96,48 @@ export interface CareerRoadmap {
   current_level: string;
   target_role: string;
   milestones: Milestone[];
+}
+
+export interface ProgrammingLanguageScore {
+  name: string;
+  proficiency: "beginner" | "intermediate" | "advanced";
+  confidence: number;
+  context: string;
+}
+
+export interface SkillCategoryBreakdown {
+  category: string;
+  skills: string[];
+  score: number;
+}
+
+export interface RadarScores {
+  frontend: number;
+  backend: number;
+  data: number;
+  ml_ai: number;
+  devops: number;
+  docs: number;
+}
+
+export interface AiInsights {
+  strengths: string[];
+  weaknesses: string[];
+  career_potential: string;
+  recommended_improvements: string[];
+}
+
+export interface ScoreBreakdown {
+  resume_completeness: number;
+  content_quality: number;
+  skill_diversity: number;
+  formatting_quality: number;
+  impact_quantification: number;
+  keyword_density: number;
+  github_activity: number | null;
+  repo_quality: number | null;
+  documentation: number | null;
+  community: number | null;
 }
 
 export interface Milestone {
