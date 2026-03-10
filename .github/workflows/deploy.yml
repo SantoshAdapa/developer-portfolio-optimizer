@@ -24,17 +24,32 @@ jobs:
             set -e
             cd ~/developer-portfolio-optimizer
 
-            echo "Updating repo..."
+            echo "📥 Updating repository..."
             git fetch origin
             git reset --hard origin/main
 
-            echo "Building Docker images..."
+            echo "🧹 Cleaning old Docker resources..."
+            sudo docker system prune -f
+
+            echo "🔨 Building Docker images..."
             sudo docker compose build frontend backend
 
-            echo "Restarting backend..."
+            echo "🚀 Restarting backend..."
             sudo docker compose up -d --no-deps backend
 
-            echo "Restarting frontend..."
+            echo "🚀 Restarting frontend..."
             sudo docker compose up -d --no-deps frontend
 
-            echo "Deployment complete"
+            echo "📦 Running containers:"
+            sudo docker ps
+
+            echo "⏳ Waiting for services to start..."
+            sleep 10
+
+            echo "🔍 Checking backend health..."
+            curl -f http://localhost:8000/docs > /dev/null
+
+            echo "🔍 Checking frontend..."
+            curl -f http://localhost:3000 > /dev/null
+
+            echo "✅ Deployment successful"
