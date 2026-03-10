@@ -176,6 +176,22 @@ export function FileUploader({
                     {(selectedFile.size / 1024).toFixed(1)} KB &middot; Click or
                     drag to replace
                   </p>
+                  {onRemove && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 gap-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFile(null);
+                        onRemove();
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div>
