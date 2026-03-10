@@ -15,3 +15,5 @@ An AI-powered full-stack application that analyzes a developer’s resume and Gi
 ## Deployment Test
 
 This commit verifies the CI/CD pipeline and automated EC2 deployment.
+
+Test CI/CD deployment check
