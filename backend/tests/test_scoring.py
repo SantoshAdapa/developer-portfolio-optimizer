@@ -228,7 +228,9 @@ def test_content_quality_rich():
         "Developed scalable microservices. Implemented CI/CD pipelines. "
         "Designed and built RESTful APIs. Led a team of 5 engineers. "
         "email@example.com 555-1234 linkedin.com/in/dev\n"
-        + "\n".join(["This is a detailed line with many words describing project work."] * 10)
+        + "\n".join(
+            ["This is a detailed line with many words describing project work."] * 10
+        )
     )
     score = _score_content_quality(text)
     assert score >= 50

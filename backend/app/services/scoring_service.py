@@ -80,70 +80,254 @@ _RESUME_SECTIONS = [
 ]
 # Action verbs indicating quality resume content.
 _ACTION_VERBS = [
-    "developed", "implemented", "designed", "built", "created", "managed",
-    "led", "architected", "optimized", "improved", "increased", "reduced",
-    "deployed", "automated", "integrated", "delivered", "launched",
-    "maintained", "collaborated", "coordinated", "mentored", "analyzed",
-    "engineered", "configured", "established", "streamlined", "migrated",
-    "resolved", "troubleshot", "tested", "refactored", "scaled",
+    "developed",
+    "implemented",
+    "designed",
+    "built",
+    "created",
+    "managed",
+    "led",
+    "architected",
+    "optimized",
+    "improved",
+    "increased",
+    "reduced",
+    "deployed",
+    "automated",
+    "integrated",
+    "delivered",
+    "launched",
+    "maintained",
+    "collaborated",
+    "coordinated",
+    "mentored",
+    "analyzed",
+    "engineered",
+    "configured",
+    "established",
+    "streamlined",
+    "migrated",
+    "resolved",
+    "troubleshot",
+    "tested",
+    "refactored",
+    "scaled",
 ]
 
 # Industry keywords for keyword density scoring.
 _INDUSTRY_KEYWORDS = [
-    "agile", "scrum", "ci/cd", "devops", "microservices", "api",
-    "rest", "graphql", "cloud", "distributed", "scalable", "performance",
-    "security", "testing", "unit test", "integration", "deployment",
-    "architecture", "design patterns", "oop", "functional",
-    "full-stack", "full stack", "frontend", "backend", "machine learning",
-    "data science", "artificial intelligence", "deep learning", "nlp",
-    "computer vision", "big data", "analytics", "database",
-    "version control", "git", "open source", "containerization",
+    "agile",
+    "scrum",
+    "ci/cd",
+    "devops",
+    "microservices",
+    "api",
+    "rest",
+    "graphql",
+    "cloud",
+    "distributed",
+    "scalable",
+    "performance",
+    "security",
+    "testing",
+    "unit test",
+    "integration",
+    "deployment",
+    "architecture",
+    "design patterns",
+    "oop",
+    "functional",
+    "full-stack",
+    "full stack",
+    "frontend",
+    "backend",
+    "machine learning",
+    "data science",
+    "artificial intelligence",
+    "deep learning",
+    "nlp",
+    "computer vision",
+    "big data",
+    "analytics",
+    "database",
+    "version control",
+    "git",
+    "open source",
+    "containerization",
 ]
 
 # Mapping from radar chart category to skill keywords.
 _RADAR_SKILL_MAP = {
     "frontend": [
-        "react", "next.js", "nextjs", "vue", "vue.js", "angular", "svelte",
-        "html", "css", "tailwind", "tailwindcss", "bootstrap", "sass", "less",
-        "webpack", "vite", "jquery", "redux", "gatsby", "nuxt", "nuxt.js",
-        "material ui", "chakra", "styled-components", "framer motion",
-        "responsive design", "web design", "ui/ux", "figma",
-        "javascript", "typescript",
+        "react",
+        "next.js",
+        "nextjs",
+        "vue",
+        "vue.js",
+        "angular",
+        "svelte",
+        "html",
+        "css",
+        "tailwind",
+        "tailwindcss",
+        "bootstrap",
+        "sass",
+        "less",
+        "webpack",
+        "vite",
+        "jquery",
+        "redux",
+        "gatsby",
+        "nuxt",
+        "nuxt.js",
+        "material ui",
+        "chakra",
+        "styled-components",
+        "framer motion",
+        "responsive design",
+        "web design",
+        "ui/ux",
+        "figma",
+        "javascript",
+        "typescript",
     ],
     "backend": [
-        "fastapi", "django", "flask", "express", "express.js", "node",
-        "node.js", "nodejs", "spring", "spring boot", "rails", "ruby on rails",
-        "laravel", "asp.net", ".net", "gin", "fiber", "actix", "rocket",
-        "rest api", "graphql", "grpc", "microservices", "nest.js", "nestjs",
-        "koa", "hapi", "fastify", "java", "python", "go", "golang", "rust",
-        "ruby", "php", "c#",
+        "fastapi",
+        "django",
+        "flask",
+        "express",
+        "express.js",
+        "node",
+        "node.js",
+        "nodejs",
+        "spring",
+        "spring boot",
+        "rails",
+        "ruby on rails",
+        "laravel",
+        "asp.net",
+        ".net",
+        "gin",
+        "fiber",
+        "actix",
+        "rocket",
+        "rest api",
+        "graphql",
+        "grpc",
+        "microservices",
+        "nest.js",
+        "nestjs",
+        "koa",
+        "hapi",
+        "fastify",
+        "java",
+        "python",
+        "go",
+        "golang",
+        "rust",
+        "ruby",
+        "php",
+        "c#",
     ],
     "data": [
-        "sql", "postgresql", "postgres", "mysql", "mongodb", "redis",
-        "elasticsearch", "sqlite", "cassandra", "dynamodb", "firebase",
-        "supabase", "prisma", "sqlalchemy", "pandas", "numpy", "data analysis",
-        "etl", "data pipeline", "apache spark", "kafka", "rabbitmq",
-        "neo4j", "oracle", "mariadb", "data engineering", "data warehouse",
+        "sql",
+        "postgresql",
+        "postgres",
+        "mysql",
+        "mongodb",
+        "redis",
+        "elasticsearch",
+        "sqlite",
+        "cassandra",
+        "dynamodb",
+        "firebase",
+        "supabase",
+        "prisma",
+        "sqlalchemy",
+        "pandas",
+        "numpy",
+        "data analysis",
+        "etl",
+        "data pipeline",
+        "apache spark",
+        "kafka",
+        "rabbitmq",
+        "neo4j",
+        "oracle",
+        "mariadb",
+        "data engineering",
+        "data warehouse",
     ],
     "ml_ai": [
-        "tensorflow", "pytorch", "keras", "scikit-learn", "sklearn", "opencv",
-        "nlp", "machine learning", "deep learning", "neural network",
-        "huggingface", "transformers", "bert", "gpt", "llm",
-        "computer vision", "reinforcement learning", "xgboost", "lightgbm",
-        "artificial intelligence", "data science", "feature engineering",
-        "model training", "langchain", "rag",
+        "tensorflow",
+        "pytorch",
+        "keras",
+        "scikit-learn",
+        "sklearn",
+        "opencv",
+        "nlp",
+        "machine learning",
+        "deep learning",
+        "neural network",
+        "huggingface",
+        "transformers",
+        "bert",
+        "gpt",
+        "llm",
+        "computer vision",
+        "reinforcement learning",
+        "xgboost",
+        "lightgbm",
+        "artificial intelligence",
+        "data science",
+        "feature engineering",
+        "model training",
+        "langchain",
+        "rag",
     ],
     "devops": [
-        "docker", "kubernetes", "k8s", "ci/cd", "jenkins", "github actions",
-        "gitlab ci", "terraform", "ansible", "aws", "amazon web services",
-        "azure", "gcp", "google cloud", "heroku", "vercel", "netlify",
-        "linux", "nginx", "apache", "prometheus", "grafana", "helm",
-        "cloudformation", "pulumi", "digitalocean", "cloudflare",
+        "docker",
+        "kubernetes",
+        "k8s",
+        "ci/cd",
+        "jenkins",
+        "github actions",
+        "gitlab ci",
+        "terraform",
+        "ansible",
+        "aws",
+        "amazon web services",
+        "azure",
+        "gcp",
+        "google cloud",
+        "heroku",
+        "vercel",
+        "netlify",
+        "linux",
+        "nginx",
+        "apache",
+        "prometheus",
+        "grafana",
+        "helm",
+        "cloudformation",
+        "pulumi",
+        "digitalocean",
+        "cloudflare",
     ],
     "docs": [
-        "readme", "documentation", "technical writing", "api docs", "swagger",
-        "openapi", "jsdoc", "sphinx", "mkdocs", "confluence", "wiki",
-        "storybook", "typedoc",
+        "readme",
+        "documentation",
+        "technical writing",
+        "api docs",
+        "swagger",
+        "openapi",
+        "jsdoc",
+        "sphinx",
+        "mkdocs",
+        "confluence",
+        "wiki",
+        "storybook",
+        "typedoc",
     ],
 }
 
@@ -181,35 +365,122 @@ _KNOWN_LANGUAGES = {
 # Known skills for text-based fallback extraction.
 _KNOWN_SKILLS: dict[str, list[str]] = {
     "language": [
-        "python", "javascript", "typescript", "java", "c++", "c#",
-        "go", "golang", "rust", "ruby", "php", "swift", "kotlin", "scala",
-        "matlab", "perl", "haskell", "elixir", "dart", "lua",
-        "sql", "html", "css", "shell", "bash", "powershell",
+        "python",
+        "javascript",
+        "typescript",
+        "java",
+        "c++",
+        "c#",
+        "go",
+        "golang",
+        "rust",
+        "ruby",
+        "php",
+        "swift",
+        "kotlin",
+        "scala",
+        "matlab",
+        "perl",
+        "haskell",
+        "elixir",
+        "dart",
+        "lua",
+        "sql",
+        "html",
+        "css",
+        "shell",
+        "bash",
+        "powershell",
     ],
     "framework": [
-        "react", "next.js", "nextjs", "vue", "vue.js", "angular", "svelte",
-        "django", "flask", "fastapi", "express", "express.js",
-        "spring", "spring boot", "rails", "ruby on rails",
-        "laravel", ".net", "asp.net", "flutter", "react native",
-        "electron", "gatsby", "nuxt", "nuxt.js", "nest.js", "nestjs",
-        "tailwind", "tailwindcss", "bootstrap", "material ui",
-        "jquery", "redux",
+        "react",
+        "next.js",
+        "nextjs",
+        "vue",
+        "vue.js",
+        "angular",
+        "svelte",
+        "django",
+        "flask",
+        "fastapi",
+        "express",
+        "express.js",
+        "spring",
+        "spring boot",
+        "rails",
+        "ruby on rails",
+        "laravel",
+        ".net",
+        "asp.net",
+        "flutter",
+        "react native",
+        "electron",
+        "gatsby",
+        "nuxt",
+        "nuxt.js",
+        "nest.js",
+        "nestjs",
+        "tailwind",
+        "tailwindcss",
+        "bootstrap",
+        "material ui",
+        "jquery",
+        "redux",
     ],
     "tool": [
-        "docker", "kubernetes", "git", "github", "gitlab",
-        "jenkins", "terraform", "ansible", "webpack", "vite", "babel",
-        "eslint", "prettier", "jira", "confluence", "figma", "postman",
-        "nginx", "apache", "prometheus", "grafana", "helm",
-        "github actions", "ci/cd", "circleci",
+        "docker",
+        "kubernetes",
+        "git",
+        "github",
+        "gitlab",
+        "jenkins",
+        "terraform",
+        "ansible",
+        "webpack",
+        "vite",
+        "babel",
+        "eslint",
+        "prettier",
+        "jira",
+        "confluence",
+        "figma",
+        "postman",
+        "nginx",
+        "apache",
+        "prometheus",
+        "grafana",
+        "helm",
+        "github actions",
+        "ci/cd",
+        "circleci",
     ],
     "database": [
-        "postgresql", "postgres", "mysql", "mongodb", "redis",
-        "elasticsearch", "sqlite", "cassandra", "dynamodb",
-        "firebase", "supabase", "neo4j", "oracle", "mariadb",
+        "postgresql",
+        "postgres",
+        "mysql",
+        "mongodb",
+        "redis",
+        "elasticsearch",
+        "sqlite",
+        "cassandra",
+        "dynamodb",
+        "firebase",
+        "supabase",
+        "neo4j",
+        "oracle",
+        "mariadb",
     ],
     "cloud": [
-        "aws", "amazon web services", "azure", "gcp", "google cloud",
-        "heroku", "vercel", "netlify", "digitalocean", "cloudflare",
+        "aws",
+        "amazon web services",
+        "azure",
+        "gcp",
+        "google cloud",
+        "heroku",
+        "vercel",
+        "netlify",
+        "digitalocean",
+        "cloudflare",
     ],
 }
 
@@ -355,7 +626,9 @@ def _score_content_quality(resume_text: str) -> int:
     score += min(25, action_count * 3)
 
     # Sentence variety (max 15 pts)
-    sentences = [s.strip() for s in re.split(r"[.!?]", resume_text) if len(s.strip()) > 10]
+    sentences = [
+        s.strip() for s in re.split(r"[.!?]", resume_text) if len(s.strip()) > 10
+    ]
     score += min(15, len(sentences) * 2)
 
     # Contact info (max 10 pts)
@@ -365,7 +638,9 @@ def _score_content_quality(resume_text: str) -> int:
     score += min(10, (int(has_email) + int(has_phone) + int(has_linkedin)) * 4)
 
     # Detailed descriptions (max 25 pts)
-    detailed_lines = sum(1 for line in resume_text.split("\n") if len(line.split()) >= 8)
+    detailed_lines = sum(
+        1 for line in resume_text.split("\n") if len(line.split()) >= 8
+    )
     score += min(25, detailed_lines * 3)
 
     return min(100, score)
@@ -380,7 +655,8 @@ def _score_formatting_quality(resume_text: str) -> int:
 
     # Bullet points (max 25 pts)
     bullet_lines = sum(
-        1 for line in lines
+        1
+        for line in lines
         if line.strip().startswith(("\u2022", "-", "*", "\u2013", "\u25ba", "\u25aa"))
     )
     score += min(25, bullet_lines * 3)
@@ -391,7 +667,11 @@ def _score_formatting_quality(resume_text: str) -> int:
         for line in lines
         if line.strip()
         and len(line.strip().split()) <= 5
-        and (line.strip().isupper() or line.strip().istitle() or line.strip().endswith(":"))
+        and (
+            line.strip().isupper()
+            or line.strip().istitle()
+            or line.strip().endswith(":")
+        )
     )
     score += min(20, heading_count * 4)
 
@@ -440,9 +720,7 @@ def _score_impact_quantification(resume_text: str) -> int:
     score += min(20, len(money) * 7)
 
     # Time-based achievements (max 15 pts)
-    time_refs = re.findall(
-        r"\b\d+\s*(?:year|month|week|day)s?\b", resume_text.lower()
-    )
+    time_refs = re.findall(r"\b\d+\s*(?:year|month|week|day)s?\b", resume_text.lower())
     score += min(15, len(time_refs) * 5)
 
     return min(100, score)
@@ -549,28 +827,48 @@ def compute_developer_score(
 
 # Display name overrides for text-extracted skills.
 _DISPLAY_NAME_MAP = {
-    "nextjs": "Next.js", "next.js": "Next.js",
-    "vuejs": "Vue.js", "vue.js": "Vue.js",
-    "nodejs": "Node.js", "node.js": "Node.js",
-    "expressjs": "Express.js", "express.js": "Express.js",
-    "nestjs": "Nest.js", "nest.js": "Nest.js",
-    "nuxtjs": "Nuxt.js", "nuxt.js": "Nuxt.js",
-    "tailwindcss": "TailwindCSS", "tailwind": "TailwindCSS",
-    "fastapi": "FastAPI", "graphql": "GraphQL",
-    "postgresql": "PostgreSQL", "postgres": "PostgreSQL",
-    "mysql": "MySQL", "mongodb": "MongoDB",
-    "dynamodb": "DynamoDB", "neo4j": "Neo4j",
-    "elasticsearch": "Elasticsearch", "sqlite": "SQLite",
-    "ci/cd": "CI/CD", "k8s": "Kubernetes",
+    "nextjs": "Next.js",
+    "next.js": "Next.js",
+    "vuejs": "Vue.js",
+    "vue.js": "Vue.js",
+    "nodejs": "Node.js",
+    "node.js": "Node.js",
+    "expressjs": "Express.js",
+    "express.js": "Express.js",
+    "nestjs": "Nest.js",
+    "nest.js": "Nest.js",
+    "nuxtjs": "Nuxt.js",
+    "nuxt.js": "Nuxt.js",
+    "tailwindcss": "TailwindCSS",
+    "tailwind": "TailwindCSS",
+    "fastapi": "FastAPI",
+    "graphql": "GraphQL",
+    "postgresql": "PostgreSQL",
+    "postgres": "PostgreSQL",
+    "mysql": "MySQL",
+    "mongodb": "MongoDB",
+    "dynamodb": "DynamoDB",
+    "neo4j": "Neo4j",
+    "elasticsearch": "Elasticsearch",
+    "sqlite": "SQLite",
+    "ci/cd": "CI/CD",
+    "k8s": "Kubernetes",
     "github actions": "GitHub Actions",
-    "github": "GitHub", "gitlab": "GitLab",
-    "aws": "AWS", "gcp": "GCP",
-    "digitalocean": "DigitalOcean", "cloudflare": "Cloudflare",
-    "react native": "React Native", "spring boot": "Spring Boot",
-    "ruby on rails": "Ruby on Rails", "asp.net": "ASP.NET",
+    "github": "GitHub",
+    "gitlab": "GitLab",
+    "aws": "AWS",
+    "gcp": "GCP",
+    "digitalocean": "DigitalOcean",
+    "cloudflare": "Cloudflare",
+    "react native": "React Native",
+    "spring boot": "Spring Boot",
+    "ruby on rails": "Ruby on Rails",
+    "asp.net": "ASP.NET",
     "material ui": "Material UI",
-    "amazon web services": "AWS", "google cloud": "Google Cloud",
-    "c++": "C++", "c#": "C#",
+    "amazon web services": "AWS",
+    "google cloud": "Google Cloud",
+    "c++": "C++",
+    "c#": "C#",
 }
 
 
@@ -625,16 +923,33 @@ def _estimate_proficiency_from_text(skill_name: str, resume_text: str) -> Profic
     context = lower[start:end]
 
     advanced_clues = [
-        "expert", "advanced", "senior", "lead", "architect",
-        "extensive", "deep", "strong", "proficient", "mastered",
-        "5+", "4+", "3+ years",
+        "expert",
+        "advanced",
+        "senior",
+        "lead",
+        "architect",
+        "extensive",
+        "deep",
+        "strong",
+        "proficient",
+        "mastered",
+        "5+",
+        "4+",
+        "3+ years",
     ]
     if any(clue in context for clue in advanced_clues):
         return Proficiency.ADVANCED
 
     beginner_clues = [
-        "basic", "beginner", "learning", "familiar", "exposure",
-        "coursework", "course", "intro", "introduction",
+        "basic",
+        "beginner",
+        "learning",
+        "familiar",
+        "exposure",
+        "coursework",
+        "course",
+        "intro",
+        "introduction",
     ]
     if any(clue in context for clue in beginner_clues):
         return Proficiency.BEGINNER
@@ -652,13 +967,14 @@ def compute_radar_scores(skills: list[Skill], resume_text: str) -> RadarScores:
 
     for category, keywords in _RADAR_SKILL_MAP.items():
         matched_skills = [
-            s for s in skills
-            if any(kw in s.name.lower() for kw in keywords)
+            s for s in skills if any(kw in s.name.lower() for kw in keywords)
         ]
         text_matches = sum(1 for kw in keywords if kw in lower)
         prof_bonus = sum(
-            3 if s.proficiency == Proficiency.ADVANCED
-            else 1 if s.proficiency == Proficiency.INTERMEDIATE
+            3
+            if s.proficiency == Proficiency.ADVANCED
+            else 1
+            if s.proficiency == Proficiency.INTERMEDIATE
             else 0
             for s in matched_skills
         )
@@ -691,7 +1007,8 @@ def compute_skill_categories(skills: list[Skill]) -> list[SkillCategoryBreakdown
 
 
 def extract_programming_languages(
-    skills: list[Skill], resume_text: str,
+    skills: list[Skill],
+    resume_text: str,
 ) -> list[ProgrammingLanguageScore]:
     """Extract programming languages from skills and resume text."""
     languages: dict[str, ProgrammingLanguageScore] = {}
@@ -794,9 +1111,7 @@ def generate_ai_insights(
             "Improve resume formatting with clear headings and bullet points"
         )
     if github is None:
-        improvements.append(
-            "Link a GitHub profile to showcase code and projects"
-        )
+        improvements.append("Link a GitHub profile to showcase code and projects")
 
     # Career potential
     if overall >= 75:
@@ -832,7 +1147,8 @@ def generate_ai_insights(
 
 
 def build_score_breakdown(
-    categories: dict[str, int], has_github: bool,
+    categories: dict[str, int],
+    has_github: bool,
 ) -> ScoreBreakdown:
     """Build a structured score breakdown from category scores."""
     return ScoreBreakdown(
