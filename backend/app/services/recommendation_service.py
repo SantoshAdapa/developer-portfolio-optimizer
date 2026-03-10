@@ -23,7 +23,7 @@ from app.models.schemas import (
     Skill,
     Suggestion,
 )
-from app.models.enums import Priority
+from app.models.enums import Proficiency, Priority, SkillCategory
 
 logger = logging.getLogger(__name__)
 
@@ -241,16 +241,16 @@ _PROFICIENCY_MAP: dict[str, str] = {
 }
 
 
-def _normalize_category(raw: str) -> str:
+def _normalize_category(raw: str) -> SkillCategory:
     """Map a raw category string to a valid SkillCategory value."""
     key = raw.lower().strip().replace("-", "_")
-    return _CATEGORY_MAP.get(key, "tool")
+    return SkillCategory(_CATEGORY_MAP.get(key, "tool"))
 
 
-def _normalize_proficiency(raw: str) -> str:
+def _normalize_proficiency(raw: str) -> Proficiency:
     """Map a raw proficiency string to a valid Proficiency value."""
     key = raw.lower().strip().replace("-", "_")
-    return _PROFICIENCY_MAP.get(key, "intermediate")
+    return Proficiency(_PROFICIENCY_MAP.get(key, "intermediate"))
 
 
 async def extract_skills_with_ai(resume_text: str) -> list[Skill]:
