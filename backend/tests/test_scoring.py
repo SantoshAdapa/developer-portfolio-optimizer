@@ -172,14 +172,33 @@ def test_composite_score_range():
     assert isinstance(score, DeveloperScore)
     assert 0 <= score.overall <= 100
     assert "Score breakdown" in score.justification
+    # All 6 categories should be present when both resume + GitHub are provided
+    assert len(score.categories) == 6
 
 
 def test_composite_score_no_github():
+    """Without GitHub, only resume-based metrics should appear."""
     score = compute_developer_score("Experience", [_skill("Python")], None)
     assert score.overall >= 0
-    assert score.categories["github_activity"] == 0
+    # Only resume_completeness and skill_diversity should be present
+    assert "resume_completeness" in score.categories
+    assert "skill_diversity" in score.categories
+    assert "github_activity" not in score.categories
+    assert "community" not in score.categories
+    # Score should be meaningfully higher than the old 11/100
+    # because weights are redistributed to the available metrics
+    assert score.overall > 0
+
+
+def test_composite_score_github_only():
+    """Without resume, only GitHub-based metrics should appear."""
+    score = compute_developer_score("", [], _github())
+    assert score.overall > 0
+    assert "github_activity" in score.categories
+    assert "resume_completeness" not in score.categories
 
 
 def test_composite_score_empty():
     score = compute_developer_score("", [], None)
     assert score.overall == 0
+    assert len(score.categories) == 0

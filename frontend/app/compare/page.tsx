@@ -118,7 +118,7 @@ export default function ComparePage() {
       setFlowStatus(key === "a" ? "analyzingA" : "analyzingB");
       try {
         const res = (await runAnalysis({
-          file: st.resumeFile!,
+          file: st.resumeFile ?? undefined,
           github_username: st.githubUsername || undefined,
         })) as AnalysisResponse;
 

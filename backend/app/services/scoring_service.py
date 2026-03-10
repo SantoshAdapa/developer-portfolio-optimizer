@@ -7,14 +7,18 @@ with a weighted average into a composite score.  Thresholds are calibrated so
 that a typical mid-career developer with a reasonable GitHub presence scores
 around 55-70, while an exceptional profile caps near 100.
 
-Weights (must sum to 1.0)
-────────────────────────
+Base weights (before redistribution)
+─────────────────────────────────────
   resume_completeness  0.15   Resume structure matters, but less than code.
   skill_diversity      0.20   Breadth + depth of skills shown.
   github_activity      0.20   Commit cadence and repo count.
   repo_quality         0.25   Stars, language diversity, topic tagging.
   documentation        0.10   README and description presence.
   community            0.10   Followers + stars as community signal.
+
+When only a subset of data sources are available (e.g. resume-only or
+GitHub-only), weights are redistributed proportionally among the
+applicable metrics so the overall score remains meaningful.
 """
 
 from app.models.enums import CommitFrequency
@@ -22,10 +26,10 @@ from app.models.schemas import DeveloperScore, GitHubSummary, Skill
 
 # ── Weight configuration ─────────────────────────────────
 
-# Weight configuration — values must sum to 1.0.
-# Repo quality is weighted highest because tangible code artefacts
-# are the strongest signal; documentation and community are lowest
-# because they are secondary signals.
+# Base weight configuration.
+# When all data sources are available these sum to 1.0.
+# When only a subset is available, weights are redistributed
+# proportionally among the applicable metrics.
 WEIGHTS = {
     "resume_completeness": 0.15,
     "skill_diversity": 0.20,
@@ -34,6 +38,10 @@ WEIGHTS = {
     "documentation": 0.10,
     "community": 0.10,
 }
+
+# Which data source each metric depends on.
+_RESUME_METRICS = {"resume_completeness", "skill_diversity"}
+_GITHUB_METRICS = {"github_activity", "repo_quality", "documentation", "community"}
 
 # Resume sections we look for (case-insensitive substrings).
 # 9 sections total → each contributes ~11% toward the 0-100 score.
@@ -173,9 +181,13 @@ def compute_developer_score(
     skills: list[Skill],
     github: GitHubSummary | None,
 ) -> DeveloperScore:
-    """Compute the weighted composite developer score."""
+    """Compute the weighted composite developer score.
 
-    categories = {
+    Weights are redistributed based on available data sources so that
+    metrics without a data source are excluded rather than penalised as 0.
+    """
+
+    all_scores = {
         "resume_completeness": _score_resume_completeness(resume_text),
         "skill_diversity": _score_skill_diversity(skills),
         "github_activity": _score_github_activity(github),
@@ -184,8 +196,27 @@ def compute_developer_score(
         "community": _score_community(github),
     }
 
-    overall = int(sum(categories[k] * WEIGHTS[k] for k in WEIGHTS))
+    # Determine which metrics are applicable based on available data
+    has_resume = bool(resume_text)
+    has_github = github is not None
+
+    active_keys: set[str] = set()
+    if has_resume:
+        active_keys |= _RESUME_METRICS
+    if has_github:
+        active_keys |= _GITHUB_METRICS
+
+    # Build redistributed weights (sum to 1.0 over active keys only)
+    active_weights = {k: WEIGHTS[k] for k in active_keys}
+    total_weight = sum(active_weights.values()) or 1.0
+    normalized = {k: v / total_weight for k, v in active_weights.items()}
+
+    # Compute overall from active metrics only
+    overall = int(sum(all_scores[k] * normalized[k] for k in normalized))
     overall = max(0, min(100, overall))
+
+    # Only include active categories in the response
+    categories = {k: all_scores[k] for k in sorted(active_keys)}
 
     # Build human-readable justification
     parts: list[str] = []

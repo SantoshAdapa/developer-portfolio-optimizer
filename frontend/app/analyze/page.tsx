@@ -103,7 +103,7 @@ function AnalyzePageContent() {
   );
 
   const canAnalyze =
-    resumeFile &&
+    (resumeFile || githubUsername) &&
     stage !== "processing" &&
     !uploadResume.isPending;
 
@@ -115,7 +115,7 @@ function AnalyzePageContent() {
 
     runAnalysis.mutate(
       {
-        file: resumeFile!,
+        file: resumeFile ?? undefined,
         github_username: githubUsername ?? undefined,
       },
       {
@@ -135,7 +135,7 @@ function AnalyzePageContent() {
         },
       }
     );
-  }, [canAnalyze, resumeId, githubUsername, runAnalysis, completeAll, router]);
+  }, [canAnalyze, resumeFile, githubUsername, runAnalysis, completeAll, router]);
 
   // ── Render ───────────────────────────────────────────────
   return (

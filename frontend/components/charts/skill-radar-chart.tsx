@@ -21,12 +21,17 @@ interface SkillRadarChartProps {
 }
 
 const DIMENSION_LABELS: Record<string, string> = {
+  resume_completeness: "Resume",
+  skill_diversity: "Skills",
+  github_activity: "GitHub",
+  repo_quality: "Repo Quality",
+  documentation: "Docs",
+  community: "Community",
   backend: "Backend",
   frontend: "Frontend",
   devops: "DevOps",
   data: "Data",
   machine_learning: "ML / AI",
-  documentation: "Docs",
 };
 
 function formatLabel(dimension: string): string {

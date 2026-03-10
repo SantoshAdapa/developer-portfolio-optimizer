@@ -1,8 +1,9 @@
 import asyncio
 import logging
+import uuid
 from typing import cast
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Path, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, UploadFile
 
 from app.ai.embeddings import embed_and_store_chunks
 from app.models.schemas import (
@@ -61,14 +62,22 @@ async def get_analysis(
     "", response_model=AnalysisResponse, dependencies=[Depends(check_rate_limit)]
 )
 async def run_analysis(
-    file: UploadFile,
+    file: UploadFile | None = File(None),
     github_url: str = Form(""),
 ):
-    """Full analysis pipeline: resume + optional GitHub."""
+    """Full analysis pipeline: resume and/or GitHub."""
+    # ── Require at least one input ─────────────────────
+    if not file and not github_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide a resume file and/or a GitHub profile URL",
+        )
+
     # ── Validate inputs ────────────────────────────────
-    pdf_error = validate_pdf_file(file.filename or "", file.content_type)
-    if pdf_error:
-        raise HTTPException(status_code=400, detail=pdf_error)
+    if file:
+        pdf_error = validate_pdf_file(file.filename or "", file.content_type)
+        if pdf_error:
+            raise HTTPException(status_code=400, detail=pdf_error)
 
     github_summary = None
     if github_url:
@@ -76,50 +85,63 @@ async def run_analysis(
         if gh_error:
             raise HTTPException(status_code=400, detail=gh_error)
 
-    # ── Save & extract resume ──────────────────────────
-    try:
-        analysis_id, file_path = await save_upload(file)
-    except ValueError as e:
-        raise HTTPException(status_code=413, detail=str(e))
+    # ── Save & extract resume (if provided) ────────────
+    resume_text = ""
+    analysis_id: str | None = None
 
-    try:
-        resume_text = extract_text_from_pdf(file_path)
-    except ValueError as e:
-        cleanup_file(file_path)
-        raise HTTPException(status_code=422, detail=str(e))
-    finally:
-        cleanup_file(file_path)
+    if file:
+        try:
+            analysis_id, file_path = await save_upload(file)
+        except ValueError as e:
+            raise HTTPException(status_code=413, detail=str(e))
+
+        try:
+            resume_text = extract_text_from_pdf(file_path)
+        except ValueError as e:
+            cleanup_file(file_path)
+            raise HTTPException(status_code=422, detail=str(e))
+        finally:
+            cleanup_file(file_path)
+
+    if not analysis_id:
+        analysis_id = uuid.uuid4().hex[:12]
 
     # ── Parallel: skills extraction + GitHub analysis + embed chunks ──
-    resume_chunks = chunk_text(resume_text)
-    coros = [
-        extract_skills_with_ai(resume_text),
-        embed_and_store_chunks(analysis_id, resume_chunks),
-    ]
+    coros: list = []
+    coro_labels: list[str] = []
+
+    if resume_text:
+        resume_chunks = chunk_text(resume_text)
+        coros.append(extract_skills_with_ai(resume_text))
+        coro_labels.append("skills")
+        coros.append(embed_and_store_chunks(analysis_id, resume_chunks))
+        coro_labels.append("embed")
+
     if github_url:
         coros.append(analyze_github_profile(extract_username(github_url)))
+        coro_labels.append("github")
 
-    results = await asyncio.gather(*coros, return_exceptions=True)
+    raw_results = await asyncio.gather(*coros, return_exceptions=True) if coros else []
+    result_map = dict(zip(coro_labels, raw_results))
 
     # Unpack skills
-    skills: list[Skill] = (
-        cast(list[Skill], results[0])
-        if not isinstance(results[0], BaseException)
-        else []
-    )
-    if isinstance(results[0], BaseException):
-        logger.exception("Skill extraction failed", exc_info=results[0])
-
-    # Unpack embedding result (index 1) — log but don't block
-    if isinstance(results[1], BaseException):
-        logger.warning("Embedding storage failed: %s", results[1])
-
-    # Unpack GitHub (if requested)
-    if github_url and len(results) > 2:
-        if isinstance(results[2], BaseException):
-            logger.exception("GitHub analysis failed", exc_info=results[2])
+    skills: list[Skill] = []
+    if "skills" in result_map:
+        if isinstance(result_map["skills"], BaseException):
+            logger.exception("Skill extraction failed", exc_info=result_map["skills"])
         else:
-            github_summary = cast(GitHubSummary, results[2])
+            skills = cast(list[Skill], result_map["skills"])
+
+    # Unpack embedding result — log but don't block
+    if "embed" in result_map and isinstance(result_map["embed"], BaseException):
+        logger.warning("Embedding storage failed: %s", result_map["embed"])
+
+    # Unpack GitHub
+    if "github" in result_map:
+        if isinstance(result_map["github"], BaseException):
+            logger.exception("GitHub analysis failed", exc_info=result_map["github"])
+        else:
+            github_summary = cast(GitHubSummary, result_map["github"])
 
     # ── Scoring ────────────────────────────────────────
     developer_score = compute_developer_score(resume_text, skills, github_summary)

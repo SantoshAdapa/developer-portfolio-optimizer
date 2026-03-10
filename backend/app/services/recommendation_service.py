@@ -185,6 +185,73 @@ def _parse_roadmap(raw: dict | list) -> CareerRoadmap:
 
 # ── Skill Extraction via AI ──────────────────────────────
 
+# Maps common AI-returned category strings to valid SkillCategory values.
+_CATEGORY_MAP: dict[str, str] = {
+    "language": "language",
+    "languages": "language",
+    "programming_language": "language",
+    "programming language": "language",
+    "programming": "language",
+    "lang": "language",
+    "framework": "framework",
+    "frameworks": "framework",
+    "library": "framework",
+    "libraries": "framework",
+    "tool": "tool",
+    "tools": "tool",
+    "devops": "tool",
+    "infrastructure": "tool",
+    "testing": "tool",
+    "version_control": "tool",
+    "version control": "tool",
+    "database": "database",
+    "databases": "database",
+    "db": "database",
+    "data_store": "database",
+    "cloud": "cloud",
+    "cloud_platform": "cloud",
+    "cloud platform": "cloud",
+    "platform": "cloud",
+    "soft_skill": "soft_skill",
+    "soft_skills": "soft_skill",
+    "soft skill": "soft_skill",
+    "soft skills": "soft_skill",
+    "soft": "soft_skill",
+    "communication": "soft_skill",
+    "leadership": "soft_skill",
+    "management": "soft_skill",
+    "interpersonal": "soft_skill",
+}
+
+_PROFICIENCY_MAP: dict[str, str] = {
+    "beginner": "beginner",
+    "basic": "beginner",
+    "junior": "beginner",
+    "novice": "beginner",
+    "entry": "beginner",
+    "intermediate": "intermediate",
+    "mid": "intermediate",
+    "moderate": "intermediate",
+    "mid-level": "intermediate",
+    "advanced": "advanced",
+    "expert": "advanced",
+    "senior": "advanced",
+    "proficient": "advanced",
+    "master": "advanced",
+}
+
+
+def _normalize_category(raw: str) -> str:
+    """Map a raw category string to a valid SkillCategory value."""
+    key = raw.lower().strip().replace("-", "_")
+    return _CATEGORY_MAP.get(key, "tool")
+
+
+def _normalize_proficiency(raw: str) -> str:
+    """Map a raw proficiency string to a valid Proficiency value."""
+    key = raw.lower().strip().replace("-", "_")
+    return _PROFICIENCY_MAP.get(key, "intermediate")
+
 
 async def extract_skills_with_ai(resume_text: str) -> list[Skill]:
     """Use Gemini to extract structured skills from resume text."""
@@ -199,7 +266,19 @@ async def extract_skills_with_ai(resume_text: str) -> list[Skill]:
     dropped = 0
     for item in items:
         try:
-            skills.append(Skill(**item))
+            if not isinstance(item, dict) or "name" not in item:
+                dropped += 1
+                continue
+            skills.append(
+                Skill(
+                    name=item["name"],
+                    category=_normalize_category(item.get("category", "tool")),
+                    proficiency=_normalize_proficiency(
+                        item.get("proficiency", "intermediate")
+                    ),
+                    source=item.get("source", "resume"),
+                )
+            )
         except (TypeError, ValueError) as e:
             dropped += 1
             logger.warning("Skipping malformed skill: %s — raw: %.200s", e, item)

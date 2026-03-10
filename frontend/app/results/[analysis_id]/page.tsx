@@ -77,18 +77,13 @@ export default function ResultsPage() {
   const roadmapData = (isDemo ? demoProfile?.roadmap : roadmap.data) as CareerRoadmap | undefined;
   const benchmarkData = (isDemo ? undefined : benchmarkQuery.data) as BenchmarkResponse | undefined;
 
-  // Build radar data from skill categories
-  const radarDimensions = ["backend", "frontend", "devops", "data", "machine_learning", "documentation"];
+  // Build radar data from score categories (only active ones are present)
   const radarData: RadarDataPoint[] | undefined = data
-    ? radarDimensions.map((dim) => {
-        const matching = data.skills.filter(
-          (s) => s.category.toLowerCase().includes(dim) || dim.includes(s.category.toLowerCase())
-        );
-        const value = matching.length > 0
-          ? Math.min(100, matching.length * 15 + (matching.some((s) => s.proficiency === "advanced") ? 25 : 0))
-          : 0;
-        return { dimension: dim, value, fullMark: 100 };
-      })
+    ? Object.entries(data.developer_score.categories).map(([dim, value]) => ({
+        dimension: dim,
+        value,
+        fullMark: 100,
+      }))
     : undefined;
 
   // ── Error state ──────────────────────────────────────────

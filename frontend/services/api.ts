@@ -59,11 +59,13 @@ export async function analyzeGitHub(username: string) {
 // ─── Analysis ─────────────────────────────────────────────────
 
 export async function runAnalysis(params: {
-  file: File;
+  file?: File;
   github_username?: string;
 }) {
   const formData = new FormData();
-  formData.append("file", params.file);
+  if (params.file) {
+    formData.append("file", params.file);
+  }
   if (params.github_username) {
     formData.append(
       "github_url",
