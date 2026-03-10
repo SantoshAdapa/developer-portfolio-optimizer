@@ -29,12 +29,12 @@ jobs:
             git reset --hard origin/main
 
             echo "Building Docker images..."
-            sudo docker-compose build frontend backend
+            sudo docker compose build frontend backend
 
             echo "Restarting backend..."
-            sudo docker-compose up -d --no-deps backend
+            sudo docker compose up -d --no-deps backend
 
             echo "Restarting frontend..."
-            sudo docker-compose up -d --no-deps frontend
+            sudo docker compose up -d --no-deps frontend
 
             echo "Deployment complete"
