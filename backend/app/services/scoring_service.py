@@ -23,7 +23,7 @@ applicable metrics so the overall score remains meaningful.
 
 import re
 
-from app.models.enums import CommitFrequency, Proficiency
+from app.models.enums import CommitFrequency, Proficiency, SkillCategory
 from app.models.schemas import (
     AiInsights,
     DeveloperScore,
@@ -902,7 +902,7 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
             skills.append(
                 Skill(
                     name=display,
-                    category=category,
+                    category=SkillCategory(category),
                     proficiency=proficiency,
                     source="resume",
                 )
