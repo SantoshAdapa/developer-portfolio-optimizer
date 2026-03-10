@@ -43,11 +43,15 @@ async def upload_resume(file: UploadFile):
         skills = []
 
     # Persist for later use
-    store.save("resume", analysis_id, {
-        "text": resume_text,
-        "skills": skills,
-        "filename": file.filename,
-    })
+    store.save(
+        "resume",
+        analysis_id,
+        {
+            "text": resume_text,
+            "skills": skills,
+            "filename": file.filename,
+        },
+    )
 
     # Clean up uploaded file
     cleanup_file(file_path)

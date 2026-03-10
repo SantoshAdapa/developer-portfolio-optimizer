@@ -1,6 +1,10 @@
 """Tests for input validation utilities."""
 
-from app.utils.validators import sanitize_filename, validate_github_url, validate_pdf_file
+from app.utils.validators import (
+    sanitize_filename,
+    validate_github_url,
+    validate_pdf_file,
+)
 
 
 # ── PDF validation ───────────────────────────────────────

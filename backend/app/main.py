@@ -59,7 +59,9 @@ app.add_middleware(
 
 
 # ── Request body size limit middleware ──────────────────
-_MAX_BODY_BYTES = settings.max_file_size_bytes + 1024 * 1024  # file limit + 1 MB headroom
+_MAX_BODY_BYTES = (
+    settings.max_file_size_bytes + 1024 * 1024
+)  # file limit + 1 MB headroom
 
 
 @app.middleware("http")
@@ -67,9 +69,12 @@ async def limit_request_body(request: Request, call_next):
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > _MAX_BODY_BYTES:
         from fastapi.responses import JSONResponse
+
         return JSONResponse(
             status_code=413,
-            content={"detail": f"Request body too large (max {settings.max_file_size_mb + 1} MB)"},
+            content={
+                "detail": f"Request body too large (max {settings.max_file_size_mb + 1} MB)"
+            },
         )
     return await call_next(request)
 
@@ -82,6 +87,7 @@ async def attach_request_id(request: Request, call_next):
     response = await call_next(request)
     response.headers["x-request-id"] = rid
     return response
+
 
 # ── Routes ──────────────────────────────────────────────
 from app.api.v1.router import v1_router  # noqa: E402
@@ -96,6 +102,7 @@ async def health_check():
     # SQLite
     try:
         from app.db.store import load
+
         load("_health", "_ping")  # lightweight read
         checks["sqlite"] = "ok"
     except Exception as e:
@@ -104,6 +111,7 @@ async def health_check():
     # ChromaDB
     try:
         from app.db.chroma_client import get_chroma_client
+
         get_chroma_client().heartbeat()
         checks["chromadb"] = "ok"
     except Exception as e:
@@ -111,6 +119,7 @@ async def health_check():
 
     healthy = all(v == "ok" for v in checks.values())
     from fastapi.responses import JSONResponse
+
     return JSONResponse(
         content={"status": "ok" if healthy else "degraded", "checks": checks},
         status_code=200 if healthy else 503,

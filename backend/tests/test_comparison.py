@@ -18,11 +18,18 @@ def _score(overall: int, **cats) -> DeveloperScore:
 
 
 def _skill(name: str) -> Skill:
-    return Skill(name=name, category=SkillCategory.LANGUAGE, proficiency=Proficiency.INTERMEDIATE, source="resume")
+    return Skill(
+        name=name,
+        category=SkillCategory.LANGUAGE,
+        proficiency=Proficiency.INTERMEDIATE,
+        source="resume",
+    )
 
 
 def test_compare_tie():
-    result = compare_profiles(_score(75), [_skill("Python")], _score(75), [_skill("Python")])
+    result = compare_profiles(
+        _score(75), [_skill("Python")], _score(75), [_skill("Python")]
+    )
     assert result["winner"] == "tie"
     assert result["score_difference"] == 0
 
@@ -40,8 +47,10 @@ def test_compare_b_wins():
 
 def test_skill_gap():
     result = compare_profiles(
-        _score(70), [_skill("Python"), _skill("Java")],
-        _score(70), [_skill("Python"), _skill("Go")],
+        _score(70),
+        [_skill("Python"), _skill("Java")],
+        _score(70),
+        [_skill("Python"), _skill("Go")],
     )
     gap_skills = {e["skill"] for e in result["skill_gap"]}
     assert "java" in gap_skills

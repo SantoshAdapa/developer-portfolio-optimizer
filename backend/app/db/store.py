@@ -91,5 +91,7 @@ def load(namespace: str, key: str) -> dict | None:
         try:
             raw = f.decrypt(raw.encode()).decode()
         except Exception:
-            logger.warning("Failed to decrypt key=%s/%s — returning raw", namespace, key)
+            logger.warning(
+                "Failed to decrypt key=%s/%s — returning raw", namespace, key
+            )
     return json.loads(raw)

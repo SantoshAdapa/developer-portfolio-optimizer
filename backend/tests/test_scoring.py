@@ -14,7 +14,12 @@ from app.services.scoring_service import (
 
 
 def _skill(name: str, cat: str = "language") -> Skill:
-    return Skill(name=name, category=SkillCategory(cat), proficiency=Proficiency.INTERMEDIATE, source="resume")
+    return Skill(
+        name=name,
+        category=SkillCategory(cat),
+        proficiency=Proficiency.INTERMEDIATE,
+        source="resume",
+    )
 
 
 def _github(**overrides) -> GitHubSummary:
@@ -26,7 +31,13 @@ def _github(**overrides) -> GitHubSummary:
         total_stars=20,
         commit_frequency=CommitFrequency.WEEKLY,
         notable_repos=[
-            RepoSummary(name="repo1", description="desc", stars=10, has_readme=True, topics=["ml"]),
+            RepoSummary(
+                name="repo1",
+                description="desc",
+                stars=10,
+                has_readme=True,
+                topics=["ml"],
+            ),
         ],
     )
     defaults.update(overrides)
@@ -105,10 +116,16 @@ def test_repo_quality_none():
 
 def test_repo_quality_rich_repos():
     repos = [
-        RepoSummary(name=f"r{i}", description="d", stars=20, topics=["t"], has_readme=True)
+        RepoSummary(
+            name=f"r{i}", description="d", stars=20, topics=["t"], has_readme=True
+        )
         for i in range(5)
     ]
-    gh = _github(notable_repos=repos, total_stars=100, top_languages={"Py": 40, "JS": 30, "Go": 15, "Rust": 10, "C": 5})
+    gh = _github(
+        notable_repos=repos,
+        total_stars=100,
+        top_languages={"Py": 40, "JS": 30, "Go": 15, "Rust": 10, "C": 5},
+    )
     score = _score_repo_quality(gh)
     assert score >= 80
 
@@ -149,7 +166,9 @@ def test_community_high():
 
 
 def test_composite_score_range():
-    score = compute_developer_score("Experience Education Skills", [_skill("Python")], _github())
+    score = compute_developer_score(
+        "Experience Education Skills", [_skill("Python")], _github()
+    )
     assert isinstance(score, DeveloperScore)
     assert 0 <= score.overall <= 100
     assert "Score breakdown" in score.justification

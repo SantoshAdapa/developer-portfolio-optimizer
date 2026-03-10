@@ -158,15 +158,19 @@ async def run_analysis(
             logger.exception("Recommendation generation %d failed", i, exc_info=r)
 
     # ── Persist for GET endpoints ──────────────────────
-    store.save("analysis", analysis_id, {
-        "resume_text": resume_text,
-        "skills": skills,
-        "github_summary": github_summary,
-        "developer_score": developer_score,
-        "portfolio_suggestions": portfolio_suggestions,
-        "project_ideas": project_ideas,
-        "career_roadmap": career_roadmap,
-    })
+    store.save(
+        "analysis",
+        analysis_id,
+        {
+            "resume_text": resume_text,
+            "skills": skills,
+            "github_summary": github_summary,
+            "developer_score": developer_score,
+            "portfolio_suggestions": portfolio_suggestions,
+            "project_ideas": project_ideas,
+            "career_roadmap": career_roadmap,
+        },
+    )
 
     return AnalysisResponse(
         analysis_id=analysis_id,

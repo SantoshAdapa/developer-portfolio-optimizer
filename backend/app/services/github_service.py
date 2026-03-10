@@ -123,7 +123,8 @@ async def analyze_github_profile(username: str) -> GitHubSummary:
                 language=repo.get("language"),
                 stars=repo.get("stargazers_count", 0),
                 forks=repo.get("forks_count", 0),
-                has_readme=repo.get("size", 0) > 0,  # non-empty repos typically have READMEs
+                has_readme=repo.get("size", 0)
+                > 0,  # non-empty repos typically have READMEs
                 topics=repo.get("topics", []),
             )
         )
