@@ -1,12 +1,15 @@
 name: Deploy to AWS EC2
 
 on:
-  push:
-    branches: [ main ]
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Deploy to EC2 via SSH
@@ -27,12 +30,17 @@ jobs:
             echo "📥 Updating repository..."
             git fetch origin
             git reset --hard origin/main
+            COMMIT_SHA=$(git rev-parse --short HEAD)
 
             echo "🧹 Cleaning old Docker resources..."
             sudo docker system prune -f
 
             echo "🔨 Building Docker images..."
             sudo docker compose build frontend backend
+
+            echo "🏷️ Tagging images for rollback..."
+            sudo docker tag dpo-backend:latest dpo-backend:$COMMIT_SHA
+            sudo docker tag dpo-frontend:latest dpo-frontend:$COMMIT_SHA
 
             echo "🚀 Restarting backend..."
             sudo docker compose up -d --no-deps backend
@@ -47,9 +55,17 @@ jobs:
             sleep 10
 
             echo "🔍 Checking backend health..."
-            curl -sf http://localhost:8000/health > /dev/null
+            if ! curl -sf http://localhost:8000/health > /dev/null; then
+              echo "❌ Backend health check failed — rolling back..."
+              sudo docker compose up -d --no-deps --no-build backend
+              exit 1
+            fi
 
             echo "🔍 Checking frontend..."
-            curl -sf http://localhost:3000 > /dev/null
+            if ! curl -sf http://localhost:3000 > /dev/null; then
+              echo "❌ Frontend check failed — rolling back..."
+              sudo docker compose up -d --no-deps --no-build frontend
+              exit 1
+            fi
 
-            echo "✅ Deployment successful"
+            echo "✅ Deployment successful (commit: $COMMIT_SHA)"

@@ -1,4 +1,25 @@
 services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: dpo-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - dpo-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
   frontend:
     build:
       context: ./frontend
@@ -21,6 +42,11 @@ services:
     networks:
       - dpo-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   backend:
     build:
@@ -48,6 +74,11 @@ services:
     networks:
       - dpo-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   chromadb:
     image: chromadb/chroma:0.6.3
@@ -62,6 +93,11 @@ services:
     networks:
       - dpo-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
 
 volumes:
   backend_uploads:

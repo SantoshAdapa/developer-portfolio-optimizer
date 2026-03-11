@@ -1,4 +1,5 @@
 import logging
+import shutil
 import uuid
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -6,6 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pythonjsonlogger import json as jsonlogger
 
 from app.config import settings
 from app.db.store import init_db
@@ -20,13 +22,20 @@ class _RequestIdFilter(logging.Filter):
         return True
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  [%(request_id)s]  %(name)s  %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+# JSON-structured logging
+_json_handler = logging.StreamHandler()
+_json_handler.setFormatter(
+    jsonlogger.JsonFormatter(
+        fmt="%(asctime)s %(levelname)s %(name)s %(message)s %(request_id)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
 )
-for handler in logging.root.handlers:
-    handler.addFilter(_RequestIdFilter())
+_json_handler.addFilter(_RequestIdFilter())
+
+logging.root.handlers.clear()
+logging.root.addHandler(_json_handler)
+logging.root.setLevel(logging.INFO)
+
 # Quiet noisy third-party loggers
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -47,6 +56,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Prometheus metrics — exposes /metrics endpoint
+from prometheus_fastapi_instrumentator import Instrumentator  # noqa: E402
+
+Instrumentator().instrument(app).expose(app)
 
 # CORS — allow Next.js frontend
 app.add_middleware(
@@ -117,7 +131,27 @@ async def health_check():
     except Exception as e:
         checks["chromadb"] = f"error: {e}"
 
-    healthy = all(v == "ok" for v in checks.values())
+    # Gemini API reachability
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=settings.gemini_api_key)
+        genai.list_models()
+        checks["gemini"] = "ok"
+    except Exception as e:
+        checks["gemini"] = f"error: {e}"
+
+    # Disk space for uploads
+    try:
+        usage = shutil.disk_usage(settings.upload_dir)
+        free_mb = usage.free // (1024 * 1024)
+        checks["disk"] = f"ok ({free_mb} MB free)"
+        if free_mb < 100:
+            checks["disk"] = f"warning: only {free_mb} MB free"
+    except Exception as e:
+        checks["disk"] = f"error: {e}"
+
+    healthy = all(v.startswith("ok") for v in checks.values())
     from fastapi.responses import JSONResponse
 
     return JSONResponse(
