@@ -21,18 +21,30 @@ GitHub-only), weights are redistributed proportionally among the
 applicable metrics so the overall score remains meaningful.
 """
 
+from __future__ import annotations
+
+import math
 import re
 
 from app.models.enums import CommitFrequency, Proficiency, SkillCategory
 from app.models.schemas import (
     AiInsights,
+    CareerDirectionResult,
+    CareerPathSuggestion,
     DeveloperScore,
     GitHubSummary,
+    LearningRoadmapResult,
+    LearningStep,
+    MarketDemandResult,
+    MarketSkillDemand,
+    PortfolioDepthScore,
     ProgrammingLanguageScore,
     RadarScores,
     ScoreBreakdown,
     Skill,
     SkillCategoryBreakdown,
+    SkillGapResult,
+    SkillMatch,
 )
 
 # ── Weight configuration ─────────────────────────────────
@@ -873,9 +885,11 @@ _DISPLAY_NAME_MAP = {
 
 
 def extract_skills_from_text(resume_text: str) -> list[Skill]:
-    """Extract skills from resume text using keyword matching.
+    """Extract skills from resume text using keyword matching with contextual analysis.
 
     Used as a fallback when AI extraction produces few or no results.
+    Uses frequency, surrounding context, and section importance to determine
+    proficiency rather than simple keyword presence.
     """
     if not resume_text:
         return []
@@ -883,6 +897,9 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
     lower = resume_text.lower()
     skills: list[Skill] = []
     seen: set[str] = set()
+
+    # Detect resume sections for section-aware weighting
+    section_weights = _detect_section_context(resume_text)
 
     for category, skill_list in _KNOWN_SKILLS.items():
         for skill_name in skill_list:
@@ -898,7 +915,9 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
                 continue
             seen.add(key)
 
-            proficiency = _estimate_proficiency_from_text(skill_name, resume_text)
+            proficiency = _estimate_proficiency_from_text(
+                skill_name, resume_text, section_weights
+            )
             skills.append(
                 Skill(
                     name=display,
@@ -911,17 +930,75 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
     return skills
 
 
-def _estimate_proficiency_from_text(skill_name: str, resume_text: str) -> Proficiency:
-    """Estimate proficiency from surrounding context in resume text."""
+def _detect_section_context(resume_text: str) -> dict[str, float]:
+    """Identify which sections exist and return a weight map for skill context."""
     lower = resume_text.lower()
-    idx = lower.find(skill_name.lower())
-    if idx == -1:
+    weights: dict[str, float] = {}
+    # Sections where skill mentions carry higher weight
+    high_weight = ["experience", "work", "projects", "professional"]
+    medium_weight = ["skills", "technologies", "technical"]
+    low_weight = ["education", "coursework", "certifications", "summary"]
+
+    for section in high_weight:
+        if section in lower:
+            weights[section] = 1.5
+    for section in medium_weight:
+        if section in lower:
+            weights[section] = 1.0
+    for section in low_weight:
+        if section in lower:
+            weights[section] = 0.6
+    return weights
+
+
+def _estimate_proficiency_from_text(
+    skill_name: str,
+    resume_text: str,
+    section_weights: dict[str, float] | None = None,
+) -> Proficiency:
+    """Estimate proficiency from contextual signals in resume text.
+
+    Uses multiple signals:
+    - Frequency of mention (more mentions = higher proficiency)
+    - Surrounding action verbs and context clues
+    - Duration indicators (years of experience)
+    - Section importance (skills in experience section > education section)
+    """
+    lower = resume_text.lower()
+    skill_lower = skill_name.lower()
+
+    # Count frequency of mentions
+    frequency = lower.count(skill_lower)
+
+    # Gather context around all occurrences
+    contexts: list[str] = []
+    start = 0
+    while True:
+        idx = lower.find(skill_lower, start)
+        if idx == -1:
+            break
+        ctx_start = max(0, idx - 200)
+        ctx_end = min(len(lower), idx + len(skill_lower) + 200)
+        contexts.append(lower[ctx_start:ctx_end])
+        start = idx + 1
+
+    if not contexts:
         return Proficiency.INTERMEDIATE
 
-    start = max(0, idx - 200)
-    end = min(len(lower), idx + len(skill_name) + 200)
-    context = lower[start:end]
+    combined_context = " ".join(contexts)
 
+    # Score accumulator
+    score = 0
+
+    # Frequency signal: 1 mention = 1pt, 2-3 = 3pt, 4+ = 5pt
+    if frequency >= 4:
+        score += 5
+    elif frequency >= 2:
+        score += 3
+    else:
+        score += 1
+
+    # Advanced context clues
     advanced_clues = [
         "expert",
         "advanced",
@@ -936,10 +1013,18 @@ def _estimate_proficiency_from_text(skill_name: str, resume_text: str) -> Profic
         "5+",
         "4+",
         "3+ years",
+        "led",
+        "architected",
+        "designed",
+        "built from scratch",
+        "production",
+        "scaled",
+        "enterprise",
     ]
-    if any(clue in context for clue in advanced_clues):
-        return Proficiency.ADVANCED
+    advanced_matches = sum(1 for clue in advanced_clues if clue in combined_context)
+    score += advanced_matches * 2
 
+    # Beginner context clues (subtract)
     beginner_clues = [
         "basic",
         "beginner",
@@ -950,10 +1035,50 @@ def _estimate_proficiency_from_text(skill_name: str, resume_text: str) -> Profic
         "course",
         "intro",
         "introduction",
+        "hobby",
+        "personal project",
     ]
-    if any(clue in context for clue in beginner_clues):
-        return Proficiency.BEGINNER
+    beginner_matches = sum(1 for clue in beginner_clues if clue in combined_context)
+    score -= beginner_matches * 2
 
+    # Duration indicators
+    year_patterns = re.findall(
+        r"(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:experience)?",
+        combined_context,
+    )
+    if year_patterns:
+        max_years = max(int(y) for y in year_patterns)
+        if max_years >= 3:
+            score += 4
+        elif max_years >= 1:
+            score += 2
+
+    # Action verb proximity (skill near action verbs = experience indicator)
+    action_nearby = sum(1 for verb in _ACTION_VERBS if verb in combined_context)
+    if action_nearby >= 3:
+        score += 3
+    elif action_nearby >= 1:
+        score += 1
+
+    # Section context weighting
+    if section_weights:
+        in_experience = any(
+            sec in combined_context
+            for sec in ["experience", "work", "professional", "projects"]
+        )
+        in_education = any(
+            sec in combined_context for sec in ["education", "coursework", "academic"]
+        )
+        if in_experience:
+            score += 2
+        if in_education and not in_experience:
+            score -= 1
+
+    # Classify
+    if score >= 7:
+        return Proficiency.ADVANCED
+    elif score <= 1:
+        return Proficiency.BEGINNER
     return Proficiency.INTERMEDIATE
 
 
@@ -961,27 +1086,119 @@ def _estimate_proficiency_from_text(skill_name: str, resume_text: str) -> Profic
 
 
 def compute_radar_scores(skills: list[Skill], resume_text: str) -> RadarScores:
-    """Compute radar chart scores from detected skills and resume text."""
+    """Compute radar chart scores from detected skills and resume text.
+
+    Uses a weighted approach:
+    - Skills matched in project/experience context score higher than
+      simple keyword presence in text.
+    - Each skill contributes to only its primary category to avoid
+      double-counting (e.g., Python only counts under backend, not data).
+    - Proficiency level affects the contribution.
+    """
     lower = resume_text.lower() if resume_text else ""
-    scores: dict[str, int] = {}
+    scores: dict[str, float] = {cat: 0.0 for cat in _RADAR_SKILL_MAP}
 
-    for category, keywords in _RADAR_SKILL_MAP.items():
-        matched_skills = [
-            s for s in skills if any(kw in s.name.lower() for kw in keywords)
-        ]
-        text_matches = sum(1 for kw in keywords if kw in lower)
-        prof_bonus = sum(
-            3
-            if s.proficiency == Proficiency.ADVANCED
-            else 1
-            if s.proficiency == Proficiency.INTERMEDIATE
-            else 0
-            for s in matched_skills
-        )
-        raw = len(matched_skills) * 15 + text_matches * 5 + prof_bonus * 5
-        scores[category] = min(100, raw)
+    # Track which skills have already been assigned to a category
+    assigned_skills: set[str] = set()
 
-    return RadarScores(**scores)
+    # First pass: assign each skill to its best-matching category
+    # based on both keyword match and skill object category
+    skill_category_hints = {
+        "language": {"backend", "frontend"},
+        "framework": {"backend", "frontend", "data"},
+        "tool": {"devops"},
+        "database": {"data"},
+        "cloud": {"devops"},
+    }
+
+    for skill in skills:
+        skill_lower = skill.name.lower()
+        if skill_lower in assigned_skills:
+            continue
+
+        # Find which radar categories this skill matches
+        matching_cats: list[str] = []
+        for cat, keywords in _RADAR_SKILL_MAP.items():
+            if any(kw == skill_lower or kw in skill_lower for kw in keywords):
+                matching_cats.append(cat)
+
+        if not matching_cats:
+            continue
+
+        # Pick the best category: prefer the one aligned with skill.category
+        best_cat = matching_cats[0]
+        if len(matching_cats) > 1:
+            hints = skill_category_hints.get(skill.category, set())
+            for cat in matching_cats:
+                if cat in hints:
+                    best_cat = cat
+                    break
+
+        # Proficiency-weighted contribution
+        prof_weight = {
+            Proficiency.ADVANCED: 20,
+            Proficiency.INTERMEDIATE: 14,
+            Proficiency.BEGINNER: 8,
+        }
+        scores[best_cat] += prof_weight.get(skill.proficiency, 14)
+        assigned_skills.add(skill_lower)
+
+    # Second pass: text-based context mentions (lower weight, only for unassigned)
+    # Check for project context to weight mentions higher
+    project_context = _has_project_context(lower)
+
+    for cat, keywords in _RADAR_SKILL_MAP.items():
+        for kw in keywords:
+            if len(kw) <= 2:
+                continue
+            if kw in assigned_skills:
+                continue
+            if kw in lower:
+                # Higher score if keyword appears in project/experience context
+                text_score = 7 if project_context.get(kw, False) else 4
+                scores[cat] += text_score
+
+    # Normalize to 0-100 with diminishing returns
+    final: dict[str, int] = {}
+    for cat, raw in scores.items():
+        # Use log-based scaling: first few skills matter most
+        if raw <= 0:
+            final[cat] = 0
+        else:
+            # Scale so ~60 raw points = 80/100, ~100 raw = 95/100
+            normalized = min(100, int(40 * math.log(1 + raw / 10)))
+            final[cat] = normalized
+
+    return RadarScores(**final)
+
+
+def _has_project_context(text: str) -> dict[str, bool]:
+    """Check which keywords appear near project/experience context indicators."""
+    context_indicators = [
+        "built",
+        "developed",
+        "implemented",
+        "deployed",
+        "created",
+        "designed",
+        "architected",
+        "project",
+        "production",
+        "application",
+    ]
+    result: dict[str, bool] = {}
+    for cat_keywords in _RADAR_SKILL_MAP.values():
+        for kw in cat_keywords:
+            if len(kw) <= 2:
+                continue
+            idx = text.find(kw)
+            if idx == -1:
+                continue
+            ctx_start = max(0, idx - 150)
+            ctx_end = min(len(text), idx + len(kw) + 150)
+            context = text[ctx_start:ctx_end]
+            result[kw] = any(ind in context for ind in context_indicators)
+    return result
 
 
 # ── Skill category grouping ─────────────────────────────
@@ -1010,35 +1227,39 @@ def extract_programming_languages(
     skills: list[Skill],
     resume_text: str,
 ) -> list[ProgrammingLanguageScore]:
-    """Extract programming languages from skills and resume text."""
+    """Extract programming languages from skills and resume text with contextual confidence."""
     languages: dict[str, ProgrammingLanguageScore] = {}
+    lower = resume_text.lower() if resume_text else ""
 
-    # From extracted skills
+    # From extracted skills (higher base confidence)
     for skill in skills:
         key = skill.name.lower()
         if skill.category == "language" and key in _KNOWN_LANGUAGES:
             canonical = _KNOWN_LANGUAGES[key]
             if canonical not in languages:
+                confidence = _compute_language_confidence(
+                    key, resume_text, skill.source
+                )
                 languages[canonical] = ProgrammingLanguageScore(
                     name=canonical,
                     proficiency=skill.proficiency,
-                    confidence=0.9,
+                    confidence=confidence,
                     context=f"Detected from {skill.source}",
                 )
 
     # From resume text (fallback for non-obvious names)
     if resume_text:
-        lower = resume_text.lower()
         for key, canonical in _KNOWN_LANGUAGES.items():
             if canonical in languages or len(key) <= 2:
                 continue
             if key not in lower:
                 continue
             prof = _estimate_proficiency_from_text(key, resume_text)
+            confidence = _compute_language_confidence(key, resume_text, "resume_text")
             languages[canonical] = ProgrammingLanguageScore(
                 name=canonical,
                 proficiency=prof,
-                confidence=0.6,
+                confidence=confidence,
                 context="Detected from resume text",
             )
 
@@ -1047,6 +1268,67 @@ def extract_programming_languages(
         languages.values(),
         key=lambda x: (order.get(x.proficiency, 1), -x.confidence),
     )
+
+
+def _compute_language_confidence(lang_key: str, resume_text: str, source: str) -> float:
+    """Compute confidence score for a programming language based on evidence strength."""
+    if not resume_text:
+        return 0.5
+
+    lower = resume_text.lower()
+    confidence = 0.3  # base
+
+    # Frequency of mentions
+    count = lower.count(lang_key)
+    if count >= 5:
+        confidence += 0.3
+    elif count >= 3:
+        confidence += 0.2
+    elif count >= 2:
+        confidence += 0.1
+
+    # Appears in skills/technical section
+    skill_section = _extract_section_text(
+        lower, ["skills", "technologies", "technical"]
+    )
+    if lang_key in skill_section:
+        confidence += 0.15
+
+    # Appears in experience/project context
+    exp_section = _extract_section_text(lower, ["experience", "work", "projects"])
+    if lang_key in exp_section:
+        confidence += 0.15
+
+    # Source bonus
+    if source == "both":
+        confidence += 0.1
+    elif source == "resume":
+        confidence += 0.05
+
+    return round(min(1.0, confidence), 2)
+
+
+def _extract_section_text(text: str, section_headers: list[str]) -> str:
+    """Extract rough section text by finding headers and taking text until next header."""
+    result: list[str] = []
+    lines = text.split("\n")
+    in_section = False
+    for line in lines:
+        stripped = line.strip().lower()
+        if any(h in stripped for h in section_headers) and len(stripped.split()) <= 5:
+            in_section = True
+            continue
+        if in_section:
+            # Stop at next section header
+            if (
+                stripped
+                and len(stripped.split()) <= 5
+                and (stripped.isupper() or stripped.istitle() or stripped.endswith(":"))
+            ):
+                in_section = False
+                continue
+            result.append(line)
+    return " ".join(result)
 
 
 # ── AI Insights generation ──────────────────────────────
@@ -1058,88 +1340,163 @@ def generate_ai_insights(
     github: GitHubSummary | None,
     overall: int,
 ) -> AiInsights:
-    """Generate structured insights from scoring results."""
+    """Generate structured insights from scoring results.
+
+    Produces domain-specific insights based on radar score distribution,
+    skill composition, and detected gaps rather than generic category labels.
+    """
     strengths: list[str] = []
     weaknesses: list[str] = []
     improvements: list[str] = []
 
-    sorted_cats = sorted(categories.items(), key=lambda x: x[1], reverse=True)
-
-    for name, value in sorted_cats:
-        label = name.replace("_", " ").title()
-        if value >= 70:
-            strengths.append(f"Strong {label.lower()} ({value}/100)")
-        elif value >= 50:
-            strengths.append(f"Good {label.lower()} ({value}/100)")
-        if len(strengths) >= 3:
-            break
-
-    for name, value in reversed(sorted_cats):
-        label = name.replace("_", " ").title()
-        if value < 50:
-            weaknesses.append(f"{label} needs improvement ({value}/100)")
-        if len(weaknesses) >= 3:
-            break
-
-    # Skill-based insights
+    # ── Skill composition analysis ──────────────────────
     tech_skills = [s for s in skills if s.category != "soft_skill"]
     advanced_skills = [s for s in tech_skills if s.proficiency == "advanced"]
-    skill_categories = {s.category for s in tech_skills}
+    intermediate_skills = [s for s in tech_skills if s.proficiency == "intermediate"]
+    skill_cats = {s.category for s in tech_skills}
 
+    # Domain detection: what kind of developer is this?
+    has_frontend = any(
+        s.name.lower() in _RADAR_SKILL_MAP.get("frontend", []) for s in skills
+    )
+    has_backend = any(
+        s.name.lower() in _RADAR_SKILL_MAP.get("backend", []) for s in skills
+    )
+    has_ml = any(s.name.lower() in _RADAR_SKILL_MAP.get("ml_ai", []) for s in skills)
+    has_devops = any(
+        s.name.lower() in _RADAR_SKILL_MAP.get("devops", []) for s in skills
+    )
+
+    # ── Strengths ───────────────────────────────────────
     if len(advanced_skills) >= 3:
-        names = ", ".join(s.name for s in advanced_skills[:3])
+        names = ", ".join(s.name for s in advanced_skills[:4])
         strengths.append(f"Deep expertise in {names}")
-    if len(skill_categories) >= 4:
+    elif len(advanced_skills) >= 1:
+        names = ", ".join(s.name for s in advanced_skills[:2])
+        strengths.append(f"Strong proficiency in {names}")
+
+    if has_frontend and has_backend:
+        strengths.append("Full-stack capability spanning frontend and backend")
+    elif has_frontend:
+        strengths.append("Solid frontend development foundation")
+    elif has_backend:
+        strengths.append("Strong backend engineering skills")
+
+    if has_ml:
+        strengths.append("Machine learning and AI expertise — a high-demand specialty")
+
+    if len(skill_cats) >= 4:
         strengths.append(
-            f"Well-rounded skill set across {len(skill_categories)} categories"
+            f"Versatile skill set across {len(skill_cats)} technology categories"
         )
 
+    if github and github.total_stars >= 50:
+        strengths.append(
+            f"Community-validated work with {github.total_stars} GitHub stars"
+        )
+    elif github and github.commit_frequency in ("daily", "weekly"):
+        strengths.append("Consistent coding activity showing dedication")
+
+    if categories.get("content_quality", 0) >= 70:
+        strengths.append("Well-crafted resume with strong content quality")
+
+    # ── Weaknesses ──────────────────────────────────────
     if len(tech_skills) < 5:
-        weaknesses.append("Limited technical skills detected")
-        improvements.append("Add more technical skills and tools to your resume")
+        weaknesses.append(
+            f"Only {len(tech_skills)} technical skills detected — consider showcasing more"
+        )
 
     if not any(s.category == "cloud" for s in skills):
+        weaknesses.append("No cloud platform skills detected (AWS, Azure, GCP)")
+
+    if not any(s.category == "database" for s in skills):
+        weaknesses.append("No database technologies listed")
+
+    if not has_devops:
+        weaknesses.append("Missing DevOps and infrastructure skills")
+
+    if categories.get("impact_quantification", 0) < 40:
+        weaknesses.append("Resume lacks measurable impact metrics and numbers")
+
+    if categories.get("formatting_quality", 0) < 50:
+        weaknesses.append("Resume formatting could be more structured and scannable")
+
+    if len(advanced_skills) == 0 and len(tech_skills) > 0:
+        weaknesses.append("No skills at advanced proficiency level detected")
+
+    # ── Improvements ────────────────────────────────────
+    if not any(s.category == "cloud" for s in skills):
         improvements.append(
-            "Consider adding cloud platform experience (AWS, Azure, GCP)"
+            "Add cloud platform experience — deploy a project on AWS, Azure, or GCP"
         )
+
     if categories.get("impact_quantification", 0) < 40:
         improvements.append(
-            "Add measurable impact metrics (percentages, numbers, revenue)"
+            "Quantify achievements: add percentages, revenue impact, and user counts"
         )
+
     if categories.get("formatting_quality", 0) < 50:
         improvements.append(
-            "Improve resume formatting with clear headings and bullet points"
+            "Restructure resume with clear headings, bullet points, and consistent formatting"
         )
-    if github is None:
-        improvements.append("Link a GitHub profile to showcase code and projects")
 
-    # Career potential
-    if overall >= 75:
-        career = (
-            "Strong profile suited for senior engineering roles. "
-            "Consider leadership opportunities and open-source contributions."
+    if github is None:
+        improvements.append(
+            "Link a GitHub profile to showcase your code, contributions, and projects"
         )
-    elif overall >= 55:
+
+    if not has_devops:
+        improvements.append(
+            "Learn Docker and CI/CD — they're expected in most engineering roles"
+        )
+
+    if len(intermediate_skills) > len(advanced_skills) * 2 and len(tech_skills) > 3:
+        improvements.append(
+            "Deepen expertise: focus on advancing 2-3 core skills from intermediate to advanced"
+        )
+
+    # If they have ML but no deployment skills
+    if has_ml and not has_devops:
+        improvements.append(
+            "Bridge ML and production: learn MLOps tools like Docker, K8s, or cloud ML services"
+        )
+
+    # ── Career potential ────────────────────────────────
+    if overall >= 80:
         career = (
-            "Solid foundation for mid-level positions. "
-            "Deepen one specialty and build 2-3 showcase projects to reach senior level."
+            "Exceptional profile positioned for senior/staff engineering roles. "
+            "Consider technical leadership, open-source contributions, and conference talks."
+        )
+    elif overall >= 65:
+        career = (
+            "Strong foundation for senior engineering roles. "
+            "Deepen one specialty area and build 2-3 impressive showcase projects "
+            "to accelerate career growth."
+        )
+    elif overall >= 50:
+        career = (
+            "Solid mid-level profile with clear growth trajectory. "
+            "Focus on quantifying impact, expanding cloud skills, and "
+            "contributing to open-source projects."
         )
     elif overall >= 35:
         career = (
-            "Growing developer profile with clear potential. "
-            "Build more projects, contribute to open source, and expand your skill set."
+            "Growing developer profile with visible potential. "
+            "Build end-to-end projects, gain production experience, "
+            "and expand your technical toolkit."
         )
     else:
         career = (
-            "Early-career profile with room for growth. "
-            "Focus on building projects and gaining practical experience."
+            "Early-career profile with room for rapid growth. "
+            "Start with focused project building, online courses, "
+            "and contributing to beginner-friendly open-source projects."
         )
 
     return AiInsights(
         strengths=strengths[:5],
         weaknesses=weaknesses[:5],
         career_potential=career,
-        recommended_improvements=improvements[:5],
+        recommended_improvements=improvements[:6],
     )
 
 
@@ -1162,4 +1519,836 @@ def build_score_breakdown(
         repo_quality=categories.get("repo_quality") if has_github else None,
         documentation=categories.get("documentation") if has_github else None,
         community=categories.get("community") if has_github else None,
+    )
+
+
+# ── Portfolio Depth Score ────────────────────────────────
+
+# Project-type indicators detected in resume text.
+_PROJECT_INDICATORS = [
+    "project",
+    "application",
+    "app",
+    "website",
+    "platform",
+    "system",
+    "tool",
+    "library",
+    "package",
+    "service",
+    "api",
+    "dashboard",
+    "pipeline",
+    "bot",
+    "cli",
+    "extension",
+    "plugin",
+    "mobile app",
+    "web app",
+    "microservice",
+]
+
+_DEPLOYMENT_SIGNALS = [
+    "deployed",
+    "production",
+    "live",
+    "hosted",
+    "published",
+    "released",
+    "launched",
+    "aws",
+    "azure",
+    "gcp",
+    "heroku",
+    "vercel",
+    "netlify",
+    "docker",
+    "kubernetes",
+    "ci/cd",
+]
+
+_PROJECT_TYPES = {
+    "web": ["website", "web app", "web application", "frontend", "full-stack", "saas"],
+    "api": ["api", "rest", "graphql", "microservice", "backend", "server"],
+    "data": [
+        "data pipeline",
+        "etl",
+        "analytics",
+        "dashboard",
+        "data science",
+        "ml",
+        "machine learning",
+    ],
+    "mobile": ["mobile", "ios", "android", "react native", "flutter"],
+    "devops": ["ci/cd", "infrastructure", "terraform", "docker", "kubernetes"],
+    "library": ["library", "package", "npm", "pypi", "gem", "open source", "cli"],
+}
+
+
+def compute_portfolio_depth(
+    skills: list[Skill],
+    resume_text: str,
+    github: GitHubSummary | None,
+) -> PortfolioDepthScore:
+    """Analyze portfolio depth based on project signals, tech diversity, and complexity."""
+    lower = resume_text.lower() if resume_text else ""
+
+    # Project count estimation
+    project_count = 0
+    for indicator in _PROJECT_INDICATORS:
+        project_count += lower.count(indicator)
+    # Rough dedup: cap at reasonable estimate
+    project_count = min(project_count, 25)
+    if github:
+        project_count = max(project_count, github.public_repos)
+
+    # Technology diversity (0-100)
+    unique_techs: set[str] = set()
+    for skill in skills:
+        unique_techs.add(skill.name.lower())
+    if github:
+        for lang in github.top_languages:
+            unique_techs.add(lang.lower())
+    tech_div = min(100, len(unique_techs) * 7)
+
+    # Complexity score (0-100): action verbs, architecture terms, scale indicators
+    complexity_terms = [
+        "architecture",
+        "scalable",
+        "distributed",
+        "microservice",
+        "caching",
+        "queue",
+        "concurrent",
+        "async",
+        "real-time",
+        "optimization",
+        "algorithm",
+        "encryption",
+        "authentication",
+        "authorization",
+        "rate limit",
+        "load balanc",
+        "database design",
+        "system design",
+    ]
+    complexity_hits = sum(1 for term in complexity_terms if term in lower)
+    complexity = min(100, complexity_hits * 12)
+
+    # Deployment signals (0-100)
+    deploy_hits = sum(1 for sig in _DEPLOYMENT_SIGNALS if sig in lower)
+    if github:
+        if github.commit_frequency in ("daily", "weekly"):
+            deploy_hits += 2
+        repos_with_topics = sum(1 for r in github.notable_repos if r.topics)
+        deploy_hits += repos_with_topics
+    deployment = min(100, deploy_hits * 10)
+
+    # Project type balance (0-100): how many different types of projects
+    types_found: set[str] = set()
+    for ptype, keywords in _PROJECT_TYPES.items():
+        if any(kw in lower for kw in keywords):
+            types_found.add(ptype)
+    type_balance = min(100, len(types_found) * 20)
+
+    # Overall portfolio depth
+    overall = int(
+        tech_div * 0.25
+        + complexity * 0.25
+        + deployment * 0.20
+        + type_balance * 0.20
+        + min(100, project_count * 5) * 0.10
+    )
+    overall = max(0, min(100, overall))
+
+    # Summary
+    parts: list[str] = []
+    if project_count >= 10:
+        parts.append(f"rich portfolio with {project_count}+ projects")
+    elif project_count >= 5:
+        parts.append(f"solid portfolio with {project_count} projects")
+    else:
+        parts.append(f"growing portfolio with {project_count} projects")
+
+    if len(types_found) >= 3:
+        parts.append(f"spanning {len(types_found)} project types")
+    if len(unique_techs) >= 8:
+        parts.append(f"using {len(unique_techs)} technologies")
+
+    summary = "; ".join(parts).capitalize() + "."
+
+    return PortfolioDepthScore(
+        overall=overall,
+        project_count=project_count,
+        technology_diversity=tech_div,
+        complexity_score=complexity,
+        deployment_signals=deployment,
+        project_type_balance=type_balance,
+        summary=summary,
+    )
+
+
+# ── Skill Gap Analysis Engine ───────────────────────────
+
+# Target role skill templates.
+_ROLE_TEMPLATES: dict[str, dict[str, str]] = {
+    "frontend_engineer": {
+        "javascript": "advanced",
+        "typescript": "advanced",
+        "react": "advanced",
+        "html": "intermediate",
+        "css": "intermediate",
+        "tailwind": "intermediate",
+        "webpack": "intermediate",
+        "git": "intermediate",
+        "testing": "intermediate",
+        "responsive design": "intermediate",
+    },
+    "backend_engineer": {
+        "python": "advanced",
+        "sql": "advanced",
+        "rest api": "intermediate",
+        "docker": "intermediate",
+        "git": "intermediate",
+        "postgresql": "intermediate",
+        "redis": "intermediate",
+        "linux": "intermediate",
+        "testing": "intermediate",
+        "ci/cd": "intermediate",
+    },
+    "fullstack_engineer": {
+        "javascript": "advanced",
+        "typescript": "intermediate",
+        "react": "intermediate",
+        "node.js": "intermediate",
+        "sql": "intermediate",
+        "git": "intermediate",
+        "docker": "intermediate",
+        "html": "intermediate",
+        "css": "intermediate",
+        "rest api": "intermediate",
+    },
+    "ml_engineer": {
+        "python": "advanced",
+        "tensorflow": "intermediate",
+        "pytorch": "intermediate",
+        "scikit-learn": "intermediate",
+        "pandas": "intermediate",
+        "sql": "intermediate",
+        "docker": "intermediate",
+        "git": "intermediate",
+        "linux": "intermediate",
+        "statistics": "intermediate",
+    },
+    "devops_engineer": {
+        "docker": "advanced",
+        "kubernetes": "advanced",
+        "terraform": "intermediate",
+        "aws": "intermediate",
+        "linux": "advanced",
+        "ci/cd": "advanced",
+        "git": "intermediate",
+        "python": "intermediate",
+        "bash": "intermediate",
+        "monitoring": "intermediate",
+    },
+    "data_engineer": {
+        "python": "advanced",
+        "sql": "advanced",
+        "apache spark": "intermediate",
+        "kafka": "intermediate",
+        "docker": "intermediate",
+        "aws": "intermediate",
+        "git": "intermediate",
+        "postgresql": "intermediate",
+        "data pipeline": "intermediate",
+        "etl": "intermediate",
+    },
+}
+
+_ROLE_DISPLAY_NAMES: dict[str, str] = {
+    "frontend_engineer": "Frontend Engineer",
+    "backend_engineer": "Backend Engineer",
+    "fullstack_engineer": "Fullstack Engineer",
+    "ml_engineer": "ML Engineer",
+    "devops_engineer": "DevOps Engineer",
+    "data_engineer": "Data Engineer",
+}
+
+_PROF_ORDER = {"advanced": 3, "intermediate": 2, "beginner": 1, "": 0}
+
+
+def compute_skill_gaps(
+    skills: list[Skill],
+    resume_text: str,
+    target_role: str | None = None,
+) -> SkillGapResult:
+    """Compare detected skills against a target role template.
+
+    If no target_role is given, automatically selects the best-fit role.
+    """
+    skill_map: dict[str, str] = {}
+    for s in skills:
+        skill_map[s.name.lower()] = s.proficiency
+
+    # Also check resume text for keywords
+    lower = resume_text.lower() if resume_text else ""
+
+    # Auto-detect best role if not specified
+    if not target_role or target_role not in _ROLE_TEMPLATES:
+        target_role = _auto_detect_role(skills, resume_text)
+
+    template = _ROLE_TEMPLATES[target_role]
+    role_display = _ROLE_DISPLAY_NAMES.get(
+        target_role, target_role.replace("_", " ").title()
+    )
+
+    matched: list[SkillMatch] = []
+    missing: list[SkillMatch] = []
+    partial: list[SkillMatch] = []
+
+    for req_skill, req_level in template.items():
+        # Check if user has this skill (with fuzzy matching)
+        user_prof = _find_skill_match(req_skill, skill_map, lower)
+
+        display_name = _DISPLAY_NAME_MAP.get(req_skill, req_skill.title())
+
+        if user_prof is None:
+            missing.append(
+                SkillMatch(
+                    skill=display_name,
+                    status="gap",
+                    proficiency="",
+                    required_level=req_level,
+                )
+            )
+        elif _PROF_ORDER.get(user_prof, 0) >= _PROF_ORDER.get(req_level, 0):
+            matched.append(
+                SkillMatch(
+                    skill=display_name,
+                    status="matched",
+                    proficiency=user_prof,
+                    required_level=req_level,
+                )
+            )
+        else:
+            partial.append(
+                SkillMatch(
+                    skill=display_name,
+                    status="partial",
+                    proficiency=user_prof,
+                    required_level=req_level,
+                )
+            )
+
+    total = len(template)
+    match_pct = int((len(matched) + len(partial) * 0.5) / total * 100) if total else 0
+
+    summary_parts: list[str] = [f"{match_pct}% match for {role_display}"]
+    if matched:
+        summary_parts.append(f"{len(matched)} skills fully matched")
+    if partial:
+        summary_parts.append(f"{len(partial)} skills need leveling up")
+    if missing:
+        summary_parts.append(f"{len(missing)} skills to learn")
+
+    return SkillGapResult(
+        target_role=role_display,
+        match_percentage=match_pct,
+        matched_skills=matched,
+        missing_skills=missing,
+        partial_skills=partial,
+        summary=". ".join(summary_parts) + ".",
+    )
+
+
+def _auto_detect_role(skills: list[Skill], resume_text: str) -> str:
+    """Auto-detect the best-fit target role based on current skills."""
+    lower = resume_text.lower() if resume_text else ""
+    skill_names = {s.name.lower() for s in skills}
+
+    scores: dict[str, float] = {}
+    for role, template in _ROLE_TEMPLATES.items():
+        role_score = 0.0
+        for req_skill in template:
+            if _find_skill_match(
+                req_skill, {s: "intermediate" for s in skill_names}, lower
+            ):
+                role_score += 1
+        scores[role] = role_score / len(template)
+
+    return max(scores, key=lambda k: scores[k]) if scores else "fullstack_engineer"
+
+
+def _find_skill_match(
+    target: str,
+    skill_map: dict[str, str],
+    resume_lower: str,
+) -> str | None:
+    """Find if a target skill matches any user skill (with aliases)."""
+    # Direct match
+    if target in skill_map:
+        return skill_map[target]
+
+    # Alias matching
+    aliases: dict[str, list[str]] = {
+        "node.js": ["nodejs", "node"],
+        "react": ["react.js", "reactjs"],
+        "vue": ["vue.js", "vuejs"],
+        "postgresql": ["postgres"],
+        "kubernetes": ["k8s"],
+        "testing": ["unit test", "pytest", "jest", "mocha", "testing"],
+        "rest api": ["rest", "restful", "api"],
+        "ci/cd": ["github actions", "jenkins", "gitlab ci", "circleci"],
+        "bash": ["shell"],
+        "monitoring": ["prometheus", "grafana", "datadog"],
+        "statistics": ["data analysis", "data science"],
+        "responsive design": ["css", "tailwind", "bootstrap"],
+    }
+
+    check_targets = [target]
+    if target in aliases:
+        check_targets.extend(aliases[target])
+
+    for alias in check_targets:
+        if alias in skill_map:
+            return skill_map[alias]
+
+    # Check resume text as last resort
+    for alias in check_targets:
+        if len(alias) > 2 and alias in resume_lower:
+            return "beginner"
+
+    return None
+
+
+# ── Learning Roadmap ─────────────────────────────────────
+
+_LEARNING_RESOURCES: dict[str, list[str]] = {
+    "python": ["Python.org tutorial", "Automate the Boring Stuff", "Real Python"],
+    "javascript": ["MDN Web Docs", "JavaScript.info", "freeCodeCamp"],
+    "typescript": ["TypeScript Handbook", "Total TypeScript course"],
+    "react": ["React.dev", "React Tutorial", "Next.js Learn"],
+    "docker": ["Docker Getting Started", "Docker Curriculum", "Play with Docker"],
+    "kubernetes": ["Kubernetes.io tutorials", "KodeKloud", "Kubernetes the Hard Way"],
+    "aws": ["AWS Skill Builder", "AWS Certified Cloud Practitioner", "A Cloud Guru"],
+    "sql": ["SQLBolt", "Mode Analytics SQL Tutorial", "PostgreSQL Tutorial"],
+    "git": ["Pro Git book", "Learn Git Branching", "GitHub Skills"],
+    "terraform": ["Terraform Learn", "HashiCorp tutorials"],
+    "ci/cd": ["GitHub Actions docs", "CI/CD Pipeline tutorial"],
+    "testing": ["pytest docs", "Test-Driven Development book"],
+    "tensorflow": ["TensorFlow tutorials", "Coursera ML Specialization"],
+    "pytorch": ["PyTorch tutorials", "Fast.ai course"],
+    "linux": ["Linux Journey", "OverTheWire Bandit"],
+}
+
+_SKILL_LEARNING_WEEKS: dict[str, int] = {
+    "beginner_to_intermediate": 6,
+    "intermediate_to_advanced": 10,
+    "none_to_beginner": 4,
+    "none_to_intermediate": 8,
+}
+
+
+def generate_learning_roadmap(
+    skill_gap: SkillGapResult,
+) -> LearningRoadmapResult:
+    """Generate a structured learning roadmap from skill gap analysis."""
+    steps: list[LearningStep] = []
+    order = 1
+
+    # First: partial skills (already have some knowledge, faster to level up)
+    for sm in skill_gap.partial_skills:
+        current = sm.proficiency or "beginner"
+        target = sm.required_level or "intermediate"
+        key = f"{current}_to_{target}"
+        weeks = _SKILL_LEARNING_WEEKS.get(key, 6)
+        skill_lower = sm.skill.lower()
+        resources = _LEARNING_RESOURCES.get(
+            skill_lower,
+            [f"{sm.skill} official documentation", f"Online {sm.skill} course"],
+        )
+
+        steps.append(
+            LearningStep(
+                order=order,
+                skill=sm.skill,
+                current_level=current,
+                target_level=target,
+                resources=resources[:3],
+                estimated_weeks=weeks,
+            )
+        )
+        order += 1
+
+    # Then: missing skills (need to learn from scratch)
+    for sm in skill_gap.missing_skills:
+        target = sm.required_level or "intermediate"
+        key = f"none_to_{target}"
+        weeks = _SKILL_LEARNING_WEEKS.get(key, 8)
+        skill_lower = sm.skill.lower()
+        resources = _LEARNING_RESOURCES.get(
+            skill_lower,
+            [f"{sm.skill} official documentation", f"Beginner {sm.skill} tutorial"],
+        )
+
+        steps.append(
+            LearningStep(
+                order=order,
+                skill=sm.skill,
+                current_level="none",
+                target_level=target,
+                resources=resources[:3],
+                estimated_weeks=weeks,
+            )
+        )
+        order += 1
+
+    total_weeks = sum(s.estimated_weeks for s in steps)
+
+    summary = (
+        f"Learning roadmap for {skill_gap.target_role}: "
+        f"{len(steps)} skills to develop over approximately {total_weeks} weeks."
+    )
+
+    return LearningRoadmapResult(
+        target_role=skill_gap.target_role,
+        steps=steps,
+        total_estimated_weeks=total_weeks,
+        summary=summary,
+    )
+
+
+# ── Market Demand Analysis ───────────────────────────────
+
+# Simplified market demand data (in production, this would come from an API/dataset)
+_MARKET_DEMAND: dict[str, tuple[str, str]] = {
+    # (demand_level, trend)
+    "python": ("high", "rising"),
+    "javascript": ("high", "stable"),
+    "typescript": ("high", "rising"),
+    "react": ("high", "stable"),
+    "next.js": ("high", "rising"),
+    "node.js": ("high", "stable"),
+    "docker": ("high", "rising"),
+    "kubernetes": ("high", "rising"),
+    "aws": ("high", "stable"),
+    "azure": ("high", "rising"),
+    "gcp": ("medium", "rising"),
+    "terraform": ("high", "rising"),
+    "go": ("high", "rising"),
+    "rust": ("medium", "rising"),
+    "java": ("high", "stable"),
+    "c#": ("high", "stable"),
+    "sql": ("high", "stable"),
+    "postgresql": ("high", "stable"),
+    "mongodb": ("medium", "stable"),
+    "redis": ("medium", "stable"),
+    "graphql": ("medium", "stable"),
+    "ci/cd": ("high", "rising"),
+    "git": ("high", "stable"),
+    "linux": ("high", "stable"),
+    "tensorflow": ("medium", "stable"),
+    "pytorch": ("high", "rising"),
+    "machine learning": ("high", "rising"),
+    "deep learning": ("high", "rising"),
+    "llm": ("high", "rising"),
+    "langchain": ("medium", "rising"),
+    "fastapi": ("medium", "rising"),
+    "django": ("medium", "stable"),
+    "flask": ("medium", "stable"),
+    "vue": ("medium", "stable"),
+    "angular": ("medium", "declining"),
+    "svelte": ("medium", "rising"),
+    "tailwind": ("high", "rising"),
+    "ruby": ("low", "declining"),
+    "php": ("medium", "declining"),
+    "perl": ("low", "declining"),
+    "jquery": ("low", "declining"),
+}
+
+
+def compute_market_demand(
+    skills: list[Skill],
+    resume_text: str,
+) -> MarketDemandResult:
+    """Compare user skills against market demand data."""
+    lower = resume_text.lower() if resume_text else ""
+    user_skills: set[str] = set()
+    for s in skills:
+        user_skills.add(s.name.lower())
+
+    high_demand_matches: list[MarketSkillDemand] = []
+    missing_high_demand: list[MarketSkillDemand] = []
+
+    for skill_key, (demand, trend) in _MARKET_DEMAND.items():
+        has_skill = skill_key in user_skills or (
+            len(skill_key) > 2 and skill_key in lower
+        )
+        display = _DISPLAY_NAME_MAP.get(skill_key, skill_key.title())
+
+        entry = MarketSkillDemand(
+            skill=display,
+            demand_level=demand,
+            trend=trend,
+            user_has=has_skill,
+        )
+
+        if has_skill and demand in ("high", "medium"):
+            high_demand_matches.append(entry)
+        elif not has_skill and demand == "high":
+            missing_high_demand.append(entry)
+
+    # Sort: high-demand rising first
+    trend_order = {"rising": 0, "stable": 1, "declining": 2}
+    high_demand_matches.sort(key=lambda x: trend_order.get(x.trend, 1))
+    missing_high_demand.sort(key=lambda x: trend_order.get(x.trend, 1))
+
+    # Market readiness score
+    total_high = sum(1 for _, (d, _) in _MARKET_DEMAND.items() if d == "high")
+    matched_high = sum(1 for m in high_demand_matches if m.demand_level == "high")
+    readiness = int(matched_high / max(1, total_high) * 100)
+
+    summary_parts: list[str] = [f"{readiness}% market readiness"]
+    if high_demand_matches:
+        summary_parts.append(f"{len(high_demand_matches)} in-demand skills matched")
+    if missing_high_demand:
+        rising_missing = [m for m in missing_high_demand if m.trend == "rising"]
+        if rising_missing:
+            names = ", ".join(m.skill for m in rising_missing[:3])
+            summary_parts.append(f"trending skills to learn: {names}")
+
+    return MarketDemandResult(
+        high_demand_matches=high_demand_matches[:10],
+        missing_high_demand=missing_high_demand[:10],
+        market_readiness=readiness,
+        summary=". ".join(summary_parts) + ".",
+    )
+
+
+# ── Career Direction Engine ──────────────────────────────
+
+_CAREER_PATHS: dict[str, dict[str, list[str] | str]] = {
+    "Frontend Engineer": {
+        "matching": [
+            "javascript",
+            "typescript",
+            "react",
+            "vue",
+            "angular",
+            "html",
+            "css",
+            "tailwind",
+            "next.js",
+            "svelte",
+        ],
+        "to_develop": [
+            "system design",
+            "testing",
+            "performance optimization",
+            "accessibility",
+        ],
+        "description": "Build user interfaces and interactive web experiences",
+    },
+    "Backend Engineer": {
+        "matching": [
+            "python",
+            "java",
+            "go",
+            "rust",
+            "node.js",
+            "sql",
+            "postgresql",
+            "redis",
+            "docker",
+            "rest api",
+        ],
+        "to_develop": [
+            "system design",
+            "distributed systems",
+            "message queues",
+            "caching",
+        ],
+        "description": "Design and build server-side systems, APIs, and data processing",
+    },
+    "Fullstack Engineer": {
+        "matching": [
+            "javascript",
+            "typescript",
+            "react",
+            "node.js",
+            "python",
+            "sql",
+            "html",
+            "css",
+            "docker",
+            "git",
+        ],
+        "to_develop": ["devops", "cloud", "system design", "mobile development"],
+        "description": "Work across the entire stack from frontend to backend and deployment",
+    },
+    "ML Engineer": {
+        "matching": [
+            "python",
+            "tensorflow",
+            "pytorch",
+            "scikit-learn",
+            "pandas",
+            "numpy",
+            "machine learning",
+            "deep learning",
+        ],
+        "to_develop": [
+            "mlops",
+            "distributed training",
+            "model serving",
+            "data engineering",
+        ],
+        "description": "Build and deploy machine learning models at scale",
+    },
+    "DevOps Engineer": {
+        "matching": [
+            "docker",
+            "kubernetes",
+            "terraform",
+            "aws",
+            "linux",
+            "ci/cd",
+            "bash",
+            "python",
+            "git",
+        ],
+        "to_develop": [
+            "security",
+            "networking",
+            "cost optimization",
+            "site reliability",
+        ],
+        "description": "Automate infrastructure, deployments, and operational processes",
+    },
+    "Data Engineer": {
+        "matching": [
+            "python",
+            "sql",
+            "apache spark",
+            "kafka",
+            "aws",
+            "docker",
+            "postgresql",
+            "etl",
+        ],
+        "to_develop": [
+            "data modeling",
+            "stream processing",
+            "data governance",
+            "orchestration",
+        ],
+        "description": "Build data pipelines and infrastructure for analytics and ML",
+    },
+    "Mobile Developer": {
+        "matching": [
+            "react native",
+            "flutter",
+            "swift",
+            "kotlin",
+            "dart",
+            "javascript",
+            "typescript",
+        ],
+        "to_develop": [
+            "app store optimization",
+            "push notifications",
+            "offline-first",
+            "animation",
+        ],
+        "description": "Build native and cross-platform mobile applications",
+    },
+    "Cloud Architect": {
+        "matching": [
+            "aws",
+            "azure",
+            "gcp",
+            "terraform",
+            "kubernetes",
+            "docker",
+            "linux",
+            "networking",
+        ],
+        "to_develop": [
+            "cost optimization",
+            "compliance",
+            "disaster recovery",
+            "multi-cloud",
+        ],
+        "description": "Design and manage cloud infrastructure at enterprise scale",
+    },
+}
+
+
+def compute_career_direction(
+    skills: list[Skill],
+    resume_text: str,
+    radar_scores: RadarScores | None = None,
+) -> CareerDirectionResult:
+    """Suggest career paths based on skill distribution and radar scores."""
+    skill_names = {s.name.lower() for s in skills}
+    lower = resume_text.lower() if resume_text else ""
+
+    career_paths: list[CareerPathSuggestion] = []
+
+    for role, config in _CAREER_PATHS.items():
+        matching_skills: list[str] = []
+        for skill_key in config["matching"]:
+            display = _DISPLAY_NAME_MAP.get(skill_key, skill_key.title())
+            if skill_key in skill_names or (len(skill_key) > 2 and skill_key in lower):
+                matching_skills.append(display)
+
+        fit = int(len(matching_skills) / max(1, len(config["matching"])) * 100)
+
+        # Boost fit based on radar scores
+        if radar_scores:
+            if role in ("Frontend Engineer",) and radar_scores.frontend >= 50:
+                fit = min(100, fit + 10)
+            elif role in ("Backend Engineer",) and radar_scores.backend >= 50:
+                fit = min(100, fit + 10)
+            elif role in ("ML Engineer",) and radar_scores.ml_ai >= 50:
+                fit = min(100, fit + 10)
+            elif (
+                role in ("DevOps Engineer", "Cloud Architect")
+                and radar_scores.devops >= 50
+            ):
+                fit = min(100, fit + 10)
+            elif role in ("Data Engineer",) and radar_scores.data >= 50:
+                fit = min(100, fit + 10)
+
+        skills_to_develop: list[str] = []
+        for dev_skill in config["to_develop"]:
+            if dev_skill.lower() not in skill_names:
+                skills_to_develop.append(dev_skill.title())
+
+        career_paths.append(
+            CareerPathSuggestion(
+                role=role,
+                fit_score=fit,
+                matching_skills=matching_skills,
+                skills_to_develop=skills_to_develop[:4],
+                description=str(config["description"]),
+            )
+        )
+
+    # Sort by fit score descending
+    career_paths.sort(key=lambda x: x.fit_score, reverse=True)
+
+    primary = career_paths[0].role if career_paths else "General Software Engineer"
+
+    top_paths = career_paths[:3]
+    summary = f"Best fit: {primary} ({top_paths[0].fit_score}% match). "
+    if len(top_paths) > 1:
+        alt = ", ".join(p.role for p in top_paths[1:3])
+        summary += f"Also suited for: {alt}."
+
+    return CareerDirectionResult(
+        primary_direction=primary,
+        career_paths=career_paths,
+        summary=summary,
     )

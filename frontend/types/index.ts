@@ -54,6 +54,11 @@ export interface AnalysisResponse {
   programming_languages: ProgrammingLanguageScore[];
   ai_insights: AiInsights | null;
   score_breakdown: ScoreBreakdown | null;
+  portfolio_depth: PortfolioDepthScore | null;
+  skill_gap: SkillGapResult | null;
+  learning_roadmap: LearningRoadmapResult | null;
+  market_demand: MarketDemandResult | null;
+  career_direction: CareerDirectionResult | null;
   github_summary: GitHubSummary | null;
   portfolio_suggestions: Suggestion[];
   project_ideas: ProjectIdea[];
@@ -138,6 +143,86 @@ export interface ScoreBreakdown {
   repo_quality: number | null;
   documentation: number | null;
   community: number | null;
+}
+
+// ─── Portfolio Depth Types ────────────────────────────────────
+
+export interface PortfolioDepthScore {
+  overall: number;
+  project_count: number;
+  technology_diversity: number;
+  complexity_score: number;
+  deployment_signals: number;
+  project_type_balance: number;
+  summary: string;
+}
+
+// ─── Skill Gap Types ──────────────────────────────────────────
+
+export interface SkillMatch {
+  skill: string;
+  status: "matched" | "gap" | "partial";
+  proficiency: string;
+  required_level: string;
+}
+
+export interface SkillGapResult {
+  target_role: string;
+  match_percentage: number;
+  matched_skills: SkillMatch[];
+  missing_skills: SkillMatch[];
+  partial_skills: SkillMatch[];
+  summary: string;
+}
+
+// ─── Learning Roadmap Types ───────────────────────────────────
+
+export interface LearningStep {
+  order: number;
+  skill: string;
+  current_level: string;
+  target_level: string;
+  resources: string[];
+  estimated_weeks: number;
+}
+
+export interface LearningRoadmapResult {
+  target_role: string;
+  steps: LearningStep[];
+  total_estimated_weeks: number;
+  summary: string;
+}
+
+// ─── Market Demand Types ──────────────────────────────────────
+
+export interface MarketSkillDemand {
+  skill: string;
+  demand_level: "high" | "medium" | "low";
+  trend: "rising" | "stable" | "declining";
+  user_has: boolean;
+}
+
+export interface MarketDemandResult {
+  high_demand_matches: MarketSkillDemand[];
+  missing_high_demand: MarketSkillDemand[];
+  market_readiness: number;
+  summary: string;
+}
+
+// ─── Career Direction Types ───────────────────────────────────
+
+export interface CareerPathSuggestion {
+  role: string;
+  fit_score: number;
+  matching_skills: string[];
+  skills_to_develop: string[];
+  description: string;
+}
+
+export interface CareerDirectionResult {
+  primary_direction: string;
+  career_paths: CareerPathSuggestion[];
+  summary: string;
 }
 
 export interface Milestone {

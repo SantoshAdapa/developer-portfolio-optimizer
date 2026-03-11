@@ -23,6 +23,11 @@ import { ExportReport } from "@/components/results/export-report";
 import { BenchmarkPanel } from "@/components/benchmark/benchmark-panel";
 import { SkillRadarChart } from "@/components/charts/skill-radar-chart";
 import { AiExplanation } from "@/components/analysis/ai-explanation";
+import { PortfolioDepth } from "@/components/results/portfolio-depth";
+import { SkillGapPanel } from "@/components/results/skill-gap-panel";
+import { LearningRoadmapPanel } from "@/components/results/learning-roadmap-panel";
+import { MarketDemandPanel } from "@/components/results/market-demand-panel";
+import { CareerDirectionPanel } from "@/components/results/career-direction-panel";
 import {
   ScoreSkeleton,
   SectionSkeleton,
@@ -237,8 +242,43 @@ export default function ResultsPage() {
           {radarData ? <SkillRadarChart data={radarData} /> : <SectionSkeleton lines={3} />}
         </motion.section>
 
-        {/* 8 — AI Score Explanation */}
+        {/* 8 — Portfolio Depth */}
         <motion.section {...sectionProps(7)}>
+          {data?.portfolio_depth ? (
+            <PortfolioDepth depth={data.portfolio_depth} />
+          ) : null}
+        </motion.section>
+
+        {/* 9 — Skill Gap Analysis */}
+        <motion.section {...sectionProps(8)}>
+          {data?.skill_gap ? (
+            <SkillGapPanel skillGap={data.skill_gap} />
+          ) : null}
+        </motion.section>
+
+        {/* 10 — Learning Roadmap */}
+        <motion.section {...sectionProps(9)}>
+          {data?.learning_roadmap && data.learning_roadmap.steps.length > 0 ? (
+            <LearningRoadmapPanel roadmap={data.learning_roadmap} />
+          ) : null}
+        </motion.section>
+
+        {/* 11 — Market Demand */}
+        <motion.section {...sectionProps(10)}>
+          {data?.market_demand ? (
+            <MarketDemandPanel demand={data.market_demand} />
+          ) : null}
+        </motion.section>
+
+        {/* 12 — Career Direction */}
+        <motion.section {...sectionProps(11)}>
+          {data?.career_direction ? (
+            <CareerDirectionPanel direction={data.career_direction} />
+          ) : null}
+        </motion.section>
+
+        {/* 13 — AI Score Explanation */}
+        <motion.section {...sectionProps(12)}>
           {data ? (
             <AiExplanation
               score={data.developer_score}
@@ -250,8 +290,8 @@ export default function ResultsPage() {
           )}
         </motion.section>
 
-        {/* 9 — Benchmark Panel */}
-        <motion.section {...sectionProps(8)}>
+        {/* 14 — Benchmark Panel */}
+        <motion.section {...sectionProps(13)}>
           {benchmarkData ? (
             <BenchmarkPanel benchmark={benchmarkData} />
           ) : benchmarkQuery.isLoading ? (
@@ -259,8 +299,8 @@ export default function ResultsPage() {
           ) : null}
         </motion.section>
 
-        {/* 10 — Career Roadmap */}
-        <motion.section {...sectionProps(9)}>
+        {/* 15 — Career Roadmap */}
+        <motion.section {...sectionProps(14)}>
           {roadmapData ? (
             <CareerRoadmapSection roadmap={roadmapData} />
           ) : roadmap.isLoading ? (

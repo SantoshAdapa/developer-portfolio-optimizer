@@ -13,12 +13,17 @@ from app.services.scoring_service import (
     _score_repo_quality,
     _score_resume_completeness,
     _score_skill_diversity,
+    compute_career_direction,
     compute_developer_score,
+    compute_market_demand,
+    compute_portfolio_depth,
     compute_radar_scores,
     compute_skill_categories,
+    compute_skill_gaps,
     extract_programming_languages,
     extract_skills_from_text,
     generate_ai_insights,
+    generate_learning_roadmap,
 )
 
 
@@ -354,3 +359,297 @@ def test_generate_ai_insights():
     assert len(insights.strengths) > 0
     assert len(insights.career_potential) > 0
     assert len(insights.recommended_improvements) > 0
+
+
+# ── Proficiency estimation ───────────────────────────────
+
+
+def test_proficiency_advanced_from_context():
+    text = "Senior Python developer with 5+ years of experience. Expert in Python, led architecture design."
+    skills = extract_skills_from_text(text)
+    python = next((s for s in skills if s.name == "Python"), None)
+    assert python is not None
+    assert python.proficiency == Proficiency.ADVANCED
+
+
+def test_proficiency_beginner_from_context():
+    text = (
+        "Basic knowledge of Python from coursework. Familiar with Python fundamentals."
+    )
+    skills = extract_skills_from_text(text)
+    python = next((s for s in skills if s.name == "Python"), None)
+    assert python is not None
+    assert python.proficiency == Proficiency.BEGINNER
+
+
+def test_proficiency_intermediate_default():
+    text = "Used Python for data analysis projects."
+    skills = extract_skills_from_text(text)
+    python = next((s for s in skills if s.name == "Python"), None)
+    assert python is not None
+    assert python.proficiency == Proficiency.INTERMEDIATE
+
+
+# ── Radar score context-awareness ────────────────────────
+
+
+def test_radar_no_double_counting():
+    """Python should contribute primarily to backend, not equally to all categories."""
+    skills = [_skill("Python", "language")]
+    radar = compute_radar_scores(skills, "python backend developer")
+    assert radar.backend > 0
+    # Python shouldn't inflate data/ml equally
+    assert radar.backend >= radar.data
+
+
+def test_radar_project_context_boost():
+    """Skills mentioned in project context should score higher."""
+    text = "Built a React dashboard application deployed to production"
+    skills = [_skill("React", "framework")]
+    radar = compute_radar_scores(skills, text)
+    assert radar.frontend > 0
+
+
+# ── Programming language confidence ──────────────────────
+
+
+def test_language_confidence_varies():
+    """Confidence should vary based on context, not be hardcoded."""
+    text = (
+        "SKILLS\nPython, JavaScript\n\n"
+        "EXPERIENCE\nDeveloped Python microservices. Built Python APIs. "
+        "Python Python Python used extensively. "
+        "JavaScript for frontend components."
+    )
+    skills = [
+        _skill("Python", "language"),
+        _skill("JavaScript", "language"),
+    ]
+    langs = extract_programming_languages(skills, text)
+    python_lang = next((lang for lang in langs if lang.name == "Python"), None)
+    js_lang = next((lang for lang in langs if lang.name == "JavaScript"), None)
+    assert python_lang is not None
+    assert js_lang is not None
+    # Python mentioned more times → higher confidence
+    assert python_lang.confidence >= js_lang.confidence
+
+
+# ── Portfolio Depth ──────────────────────────────────────
+
+
+def test_portfolio_depth_empty():
+    depth = compute_portfolio_depth([], "", None)
+    assert depth.overall == 0
+    assert depth.project_count == 0
+
+
+def test_portfolio_depth_with_projects():
+    text = (
+        "Built a web application using React and Node.js. "
+        "Deployed API microservice to AWS using Docker. "
+        "Created a data pipeline for analytics dashboard. "
+        "Mobile app project using React Native."
+    )
+    skills = [
+        _skill("React", "framework"),
+        _skill("Docker", "tool"),
+        _skill("Python", "language"),
+        _skill("AWS", "cloud"),
+    ]
+    depth = compute_portfolio_depth(skills, text, _github(public_repos=15))
+    assert depth.overall > 0
+    assert depth.project_count >= 4
+    assert depth.technology_diversity > 0
+    assert depth.deployment_signals > 0
+
+
+def test_portfolio_depth_github_contributes():
+    depth = compute_portfolio_depth(
+        [],
+        "",
+        _github(
+            public_repos=20,
+            notable_repos=[
+                RepoSummary(name="r", description="d", has_readme=True, topics=["t"])
+            ],
+        ),
+    )
+    assert depth.project_count >= 20
+
+
+# ── Skill Gap Analysis ──────────────────────────────────
+
+
+def test_skill_gap_auto_detect():
+    skills = [
+        _skill("React", "framework"),
+        _skill("TypeScript", "language"),
+        _skill("Next.js", "framework"),
+        _skill("HTML", "language"),
+        _skill("CSS", "language"),
+    ]
+    gap = compute_skill_gaps(skills, "react typescript next.js frontend developer")
+    assert gap.target_role != ""
+    assert gap.match_percentage > 0
+    assert (
+        len(gap.matched_skills) + len(gap.missing_skills) + len(gap.partial_skills) > 0
+    )
+
+
+def test_skill_gap_specific_role():
+    skills = [
+        _skill("Python", "language"),
+        _skill("Docker", "tool"),
+        _skill("SQL", "language"),
+    ]
+    gap = compute_skill_gaps(skills, "python docker sql", "backend_engineer")
+    assert gap.target_role == "Backend Engineer"
+    assert gap.match_percentage > 0
+    # Python is intermediate but template requires advanced → partial
+    # Docker and SQL should be matched or partial
+    all_skill_names = {s.skill.lower() for s in gap.matched_skills + gap.partial_skills}
+    assert any("python" in n for n in all_skill_names)
+    assert any("docker" in n for n in all_skill_names)
+
+
+def test_skill_gap_no_skills():
+    gap = compute_skill_gaps([], "", "frontend_engineer")
+    assert gap.match_percentage == 0
+    assert len(gap.missing_skills) > 0
+
+
+# ── Learning Roadmap ─────────────────────────────────────
+
+
+def test_learning_roadmap_from_gaps():
+    skills = [_skill("Python", "language")]
+    gap = compute_skill_gaps(skills, "python", "backend_engineer")
+    roadmap = generate_learning_roadmap(gap)
+    assert roadmap.target_role == "Backend Engineer"
+    assert len(roadmap.steps) > 0
+    assert roadmap.total_estimated_weeks > 0
+    # Each step should have an order
+    for step in roadmap.steps:
+        assert step.order > 0
+        assert step.skill != ""
+
+
+def test_learning_roadmap_empty_gaps():
+    from app.models.schemas import SkillGapResult
+
+    gap = SkillGapResult(
+        target_role="Test Role",
+        match_percentage=100,
+        matched_skills=[],
+        missing_skills=[],
+        partial_skills=[],
+    )
+    roadmap = generate_learning_roadmap(gap)
+    assert len(roadmap.steps) == 0
+    assert roadmap.total_estimated_weeks == 0
+
+
+# ── Market Demand ────────────────────────────────────────
+
+
+def test_market_demand_with_skills():
+    skills = [
+        _skill("Python", "language"),
+        _skill("Docker", "tool"),
+        _skill("React", "framework"),
+    ]
+    demand = compute_market_demand(skills, "python docker react")
+    assert demand.market_readiness > 0
+    matched_names = {m.skill.lower() for m in demand.high_demand_matches}
+    assert "python" in matched_names or "docker" in matched_names
+
+
+def test_market_demand_no_skills():
+    demand = compute_market_demand([], "")
+    assert demand.market_readiness == 0
+    assert len(demand.missing_high_demand) > 0
+
+
+def test_market_demand_summary():
+    skills = [_skill("Python", "language")]
+    demand = compute_market_demand(skills, "python")
+    assert len(demand.summary) > 0
+    assert "readiness" in demand.summary.lower() or "%" in demand.summary
+
+
+# ── Career Direction ─────────────────────────────────────
+
+
+def test_career_direction_frontend():
+    skills = [
+        _skill("React", "framework"),
+        _skill("TypeScript", "language"),
+        _skill("JavaScript", "language"),
+        _skill("Next.js", "framework"),
+        _skill("CSS", "language"),
+        _skill("HTML", "language"),
+    ]
+    direction = compute_career_direction(skills, "react typescript frontend developer")
+    assert direction.primary_direction != ""
+    assert len(direction.career_paths) > 0
+    # Frontend should score high
+    frontend_path = next(
+        (p for p in direction.career_paths if "Frontend" in p.role), None
+    )
+    assert frontend_path is not None
+    assert frontend_path.fit_score > 30
+
+
+def test_career_direction_empty():
+    direction = compute_career_direction([], "")
+    assert direction.primary_direction != ""
+    assert len(direction.career_paths) > 0
+    # All paths should have 0 or low fit scores
+    assert all(p.fit_score <= 30 for p in direction.career_paths[:3])
+
+
+def test_career_direction_with_radar():
+    from app.models.schemas import RadarScores
+
+    skills = [_skill("Python", "language"), _skill("Docker", "tool")]
+    radar = RadarScores(frontend=10, backend=70, data=20, ml_ai=5, devops=50, docs=10)
+    direction = compute_career_direction(skills, "python docker", radar)
+    # Backend should get a boost from radar
+    backend_path = next(
+        (p for p in direction.career_paths if "Backend" in p.role), None
+    )
+    assert backend_path is not None
+    assert backend_path.fit_score > 0
+
+
+# ── AI Insights domain-aware ────────────────────────────
+
+
+def test_ai_insights_fullstack():
+    categories = {"resume_completeness": 70, "content_quality": 60}
+    skills = [
+        _skill("React", "framework"),
+        _skill("Python", "language"),
+        _skill("Node.js", "framework"),
+        _skill("PostgreSQL", "database"),
+    ]
+    insights = generate_ai_insights(categories, skills, None, 60)
+    # Should detect fullstack capability
+    fullstack_mention = any(
+        "full-stack" in s.lower() or "full stack" in s.lower()
+        for s in insights.strengths
+    )
+    backend_mention = any("backend" in s.lower() for s in insights.strengths)
+    assert fullstack_mention or backend_mention
+
+
+def test_ai_insights_missing_cloud():
+    categories = {"resume_completeness": 70}
+    skills = [_skill("Python"), _skill("React", "framework")]
+    insights = generate_ai_insights(categories, skills, None, 50)
+    # Should flag missing cloud
+    cloud_weakness = any("cloud" in w.lower() for w in insights.weaknesses)
+    cloud_improvement = any(
+        "cloud" in i.lower() for i in insights.recommended_improvements
+    )
+    assert cloud_weakness or cloud_improvement

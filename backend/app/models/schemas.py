@@ -125,6 +125,91 @@ class ScoreBreakdown(BaseModel):
     community: int | None = None
 
 
+# ── Portfolio Depth ──────────────────────────────────────
+
+
+class PortfolioDepthScore(BaseModel):
+    overall: int = Field(ge=0, le=100)
+    project_count: int = 0
+    technology_diversity: int = Field(ge=0, le=100, default=0)
+    complexity_score: int = Field(ge=0, le=100, default=0)
+    deployment_signals: int = Field(ge=0, le=100, default=0)
+    project_type_balance: int = Field(ge=0, le=100, default=0)
+    summary: str = ""
+
+
+# ── Skill Gap Analysis ──────────────────────────────────
+
+
+class SkillMatch(BaseModel):
+    skill: str
+    status: str = Field(description="matched | gap | partial")
+    proficiency: str = ""
+    required_level: str = ""
+
+
+class SkillGapResult(BaseModel):
+    target_role: str
+    match_percentage: int = Field(ge=0, le=100)
+    matched_skills: list[SkillMatch] = []
+    missing_skills: list[SkillMatch] = []
+    partial_skills: list[SkillMatch] = []
+    summary: str = ""
+
+
+# ── Learning Roadmap ─────────────────────────────────────
+
+
+class LearningStep(BaseModel):
+    order: int
+    skill: str
+    current_level: str = ""
+    target_level: str = ""
+    resources: list[str] = []
+    estimated_weeks: int = 0
+
+
+class LearningRoadmapResult(BaseModel):
+    target_role: str
+    steps: list[LearningStep] = []
+    total_estimated_weeks: int = 0
+    summary: str = ""
+
+
+# ── Market Demand ────────────────────────────────────────
+
+
+class MarketSkillDemand(BaseModel):
+    skill: str
+    demand_level: str = Field(description="high | medium | low")
+    trend: str = Field(description="rising | stable | declining")
+    user_has: bool = False
+
+
+class MarketDemandResult(BaseModel):
+    high_demand_matches: list[MarketSkillDemand] = []
+    missing_high_demand: list[MarketSkillDemand] = []
+    market_readiness: int = Field(ge=0, le=100, default=0)
+    summary: str = ""
+
+
+# ── Career Direction ─────────────────────────────────────
+
+
+class CareerPathSuggestion(BaseModel):
+    role: str
+    fit_score: int = Field(ge=0, le=100)
+    matching_skills: list[str] = []
+    skills_to_develop: list[str] = []
+    description: str = ""
+
+
+class CareerDirectionResult(BaseModel):
+    primary_direction: str = ""
+    career_paths: list[CareerPathSuggestion] = []
+    summary: str = ""
+
+
 # ── Response Models ──────────────────────────────────────
 
 
@@ -151,6 +236,11 @@ class AnalysisResponse(BaseModel):
     programming_languages: list[ProgrammingLanguageScore] = []
     ai_insights: AiInsights | None = None
     score_breakdown: ScoreBreakdown | None = None
+    portfolio_depth: PortfolioDepthScore | None = None
+    skill_gap: SkillGapResult | None = None
+    learning_roadmap: LearningRoadmapResult | None = None
+    market_demand: MarketDemandResult | None = None
+    career_direction: CareerDirectionResult | None = None
     github_summary: GitHubSummary | None = None
     portfolio_suggestions: list[Suggestion] = []
     project_ideas: list[ProjectIdea] = []

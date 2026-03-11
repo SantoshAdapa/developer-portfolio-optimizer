@@ -29,12 +29,17 @@ from app.services.resume_service import (
 from app.utils.text_chunker import chunk_text
 from app.services.scoring_service import (
     build_score_breakdown,
+    compute_career_direction,
     compute_developer_score,
+    compute_market_demand,
+    compute_portfolio_depth,
     compute_radar_scores,
     compute_skill_categories,
+    compute_skill_gaps,
     extract_programming_languages,
     extract_skills_from_text,
     generate_ai_insights,
+    generate_learning_roadmap,
 )
 from app.db import store
 from app.utils.rate_limit import check_rate_limit
@@ -64,6 +69,11 @@ async def get_analysis(
         programming_languages=stored.get("programming_languages", []),
         ai_insights=stored.get("ai_insights"),
         score_breakdown=stored.get("score_breakdown"),
+        portfolio_depth=stored.get("portfolio_depth"),
+        skill_gap=stored.get("skill_gap"),
+        learning_roadmap=stored.get("learning_roadmap"),
+        market_demand=stored.get("market_demand"),
+        career_direction=stored.get("career_direction"),
         github_summary=stored.get("github_summary"),
         portfolio_suggestions=stored.get("portfolio_suggestions", []),
         project_ideas=stored.get("project_ideas", []),
@@ -179,6 +189,13 @@ async def run_analysis(
         developer_score.categories, skills, github_summary, developer_score.overall
     )
 
+    # ── Career intelligence features ──────────────────
+    portfolio_depth = compute_portfolio_depth(skills, resume_text, github_summary)
+    skill_gap = compute_skill_gaps(skills, resume_text)
+    learning_roadmap = generate_learning_roadmap(skill_gap)
+    market_demand = compute_market_demand(skills, resume_text)
+    career_direction = compute_career_direction(skills, resume_text, radar_scores)
+
     # ── AI recommendations (parallel, with RAG) ────────
     suggestion_coro = generate_portfolio_suggestions(
         resume_text, skills, github_summary, analysis_id
@@ -224,6 +241,11 @@ async def run_analysis(
             "programming_languages": programming_languages,
             "ai_insights": ai_insights,
             "score_breakdown": score_breakdown,
+            "portfolio_depth": portfolio_depth,
+            "skill_gap": skill_gap,
+            "learning_roadmap": learning_roadmap,
+            "market_demand": market_demand,
+            "career_direction": career_direction,
             "github_summary": github_summary,
             "developer_score": developer_score,
             "portfolio_suggestions": portfolio_suggestions,
@@ -241,6 +263,11 @@ async def run_analysis(
         programming_languages=programming_languages,
         ai_insights=ai_insights,
         score_breakdown=score_breakdown,
+        portfolio_depth=portfolio_depth,
+        skill_gap=skill_gap,
+        learning_roadmap=learning_roadmap,
+        market_demand=market_demand,
+        career_direction=career_direction,
         github_summary=github_summary,
         portfolio_suggestions=portfolio_suggestions,
         project_ideas=project_ideas,
