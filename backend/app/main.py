@@ -109,7 +109,7 @@ from app.api.v1.router import v1_router  # noqa: E402
 app.include_router(v1_router, prefix="/api/v1")
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     checks: dict[str, str] = {}
 
