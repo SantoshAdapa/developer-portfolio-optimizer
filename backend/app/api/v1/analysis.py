@@ -186,7 +186,10 @@ async def run_analysis(
         developer_score.categories, github_summary is not None
     )
     ai_insights = generate_ai_insights(
-        developer_score.categories, skills, github_summary, developer_score.overall,
+        developer_score.categories,
+        skills,
+        github_summary,
+        developer_score.overall,
         resume_text,
     )
 

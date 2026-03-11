@@ -1399,8 +1399,6 @@ def generate_ai_insights(
     weaknesses: list[str] = []
     improvements: list[str] = []
 
-    lower = resume_text.lower() if resume_text else ""
-
     # ── Skill composition analysis ──────────────────────
     tech_skills = [s for s in skills if s.category != "soft_skill"]
     advanced_skills = [s for s in tech_skills if s.proficiency == "advanced"]
@@ -1774,9 +1772,7 @@ def _count_distinct_projects(resume_text: str, github: GitHubSummary | None) -> 
                 for h in ["project", "portfolio", "experience", "work"]
             )
             and (
-                stripped_lower.endswith(":")
-                or stripped.isupper()
-                or stripped.istitle()
+                stripped_lower.endswith(":") or stripped.isupper() or stripped.istitle()
             )
         ):
             in_project_section = True
@@ -1788,9 +1784,7 @@ def _count_distinct_projects(resume_text: str, github: GitHubSummary | None) -> 
             and stripped
             and len(stripped.split()) <= 4
             and (
-                stripped_lower.endswith(":")
-                or stripped.isupper()
-                or stripped.istitle()
+                stripped_lower.endswith(":") or stripped.isupper() or stripped.istitle()
             )
             and not any(
                 h in stripped_lower
@@ -1802,8 +1796,12 @@ def _count_distinct_projects(resume_text: str, github: GitHubSummary | None) -> 
 
         # In project section: count lines that look like project titles
         # (non-bullet, non-empty, not too long, looks like a heading)
-        if in_project_section and stripped and not stripped.startswith(
-            ("\u2022", "-", "*", "\u2013", "\u25ba", "\u25aa")
+        if (
+            in_project_section
+            and stripped
+            and not stripped.startswith(
+                ("\u2022", "-", "*", "\u2013", "\u25ba", "\u25aa")
+            )
         ):
             words = stripped.split()
             # Project titles are typically 1-8 words, often title-cased
@@ -1839,9 +1837,7 @@ def _count_distinct_projects(resume_text: str, github: GitHubSummary | None) -> 
     # Method 3: Absolute minimum — count bullet clusters after project-like headings
     if project_count == 0:
         # Count how many times "project" appears as a distinct concept
-        project_mentions = len(
-            re.findall(r"\bproject\b", lower)
-        )
+        project_mentions = len(re.findall(r"\bproject\b", lower))
         # Be conservative: each 2-3 mentions likely refers to the same project
         project_count = max(1, project_mentions // 2) if project_mentions > 0 else 0
 
@@ -2192,84 +2188,163 @@ def _find_skill_match(
 
 _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
     "python": [
-        LearningResource(name="Python.org tutorial", url="https://docs.python.org/3/tutorial/"),
-        LearningResource(name="Automate the Boring Stuff", url="https://automatetheboringstuff.com/"),
+        LearningResource(
+            name="Python.org tutorial", url="https://docs.python.org/3/tutorial/"
+        ),
+        LearningResource(
+            name="Automate the Boring Stuff", url="https://automatetheboringstuff.com/"
+        ),
         LearningResource(name="Real Python", url="https://realpython.com/"),
     ],
     "javascript": [
-        LearningResource(name="MDN Web Docs", url="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide"),
+        LearningResource(
+            name="MDN Web Docs",
+            url="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide",
+        ),
         LearningResource(name="JavaScript.info", url="https://javascript.info/"),
-        LearningResource(name="freeCodeCamp", url="https://www.freecodecamp.org/learn/javascript-algorithms-and-data-structures/"),
+        LearningResource(
+            name="freeCodeCamp",
+            url="https://www.freecodecamp.org/learn/javascript-algorithms-and-data-structures/",
+        ),
     ],
     "typescript": [
-        LearningResource(name="TypeScript Handbook", url="https://www.typescriptlang.org/docs/handbook/"),
-        LearningResource(name="TypeScript Deep Dive", url="https://basarat.gitbook.io/typescript/"),
+        LearningResource(
+            name="TypeScript Handbook",
+            url="https://www.typescriptlang.org/docs/handbook/",
+        ),
+        LearningResource(
+            name="TypeScript Deep Dive", url="https://basarat.gitbook.io/typescript/"
+        ),
     ],
     "react": [
         LearningResource(name="React.dev", url="https://react.dev/learn"),
-        LearningResource(name="React Tutorial", url="https://react.dev/learn/tutorial-tic-tac-toe"),
+        LearningResource(
+            name="React Tutorial", url="https://react.dev/learn/tutorial-tic-tac-toe"
+        ),
         LearningResource(name="Next.js Learn", url="https://nextjs.org/learn"),
     ],
     "docker": [
-        LearningResource(name="Docker Getting Started", url="https://docs.docker.com/get-started/"),
-        LearningResource(name="Docker Curriculum", url="https://docker-curriculum.com/"),
-        LearningResource(name="Play with Docker", url="https://labs.play-with-docker.com/"),
+        LearningResource(
+            name="Docker Getting Started", url="https://docs.docker.com/get-started/"
+        ),
+        LearningResource(
+            name="Docker Curriculum", url="https://docker-curriculum.com/"
+        ),
+        LearningResource(
+            name="Play with Docker", url="https://labs.play-with-docker.com/"
+        ),
     ],
     "kubernetes": [
-        LearningResource(name="Kubernetes.io tutorials", url="https://kubernetes.io/docs/tutorials/"),
-        LearningResource(name="KodeKloud", url="https://kodekloud.com/courses/kubernetes-for-the-absolute-beginners/"),
-        LearningResource(name="Kubernetes the Hard Way", url="https://github.com/kelseyhightower/kubernetes-the-hard-way"),
+        LearningResource(
+            name="Kubernetes.io tutorials", url="https://kubernetes.io/docs/tutorials/"
+        ),
+        LearningResource(
+            name="KodeKloud",
+            url="https://kodekloud.com/courses/kubernetes-for-the-absolute-beginners/",
+        ),
+        LearningResource(
+            name="Kubernetes the Hard Way",
+            url="https://github.com/kelseyhightower/kubernetes-the-hard-way",
+        ),
     ],
     "aws": [
         LearningResource(name="AWS Skill Builder", url="https://skillbuilder.aws/"),
         LearningResource(name="AWS Documentation", url="https://docs.aws.amazon.com/"),
-        LearningResource(name="AWS Well-Architected", url="https://aws.amazon.com/architecture/well-architected/"),
+        LearningResource(
+            name="AWS Well-Architected",
+            url="https://aws.amazon.com/architecture/well-architected/",
+        ),
     ],
     "sql": [
         LearningResource(name="SQLBolt", url="https://sqlbolt.com/"),
-        LearningResource(name="Mode SQL Tutorial", url="https://mode.com/sql-tutorial/"),
-        LearningResource(name="PostgreSQL Tutorial", url="https://www.postgresqltutorial.com/"),
+        LearningResource(
+            name="Mode SQL Tutorial", url="https://mode.com/sql-tutorial/"
+        ),
+        LearningResource(
+            name="PostgreSQL Tutorial", url="https://www.postgresqltutorial.com/"
+        ),
     ],
     "git": [
         LearningResource(name="Pro Git book", url="https://git-scm.com/book/en/v2"),
-        LearningResource(name="Learn Git Branching", url="https://learngitbranching.js.org/"),
+        LearningResource(
+            name="Learn Git Branching", url="https://learngitbranching.js.org/"
+        ),
         LearningResource(name="GitHub Skills", url="https://skills.github.com/"),
     ],
     "terraform": [
-        LearningResource(name="Terraform Learn", url="https://developer.hashicorp.com/terraform/tutorials"),
-        LearningResource(name="HashiCorp tutorials", url="https://developer.hashicorp.com/tutorials"),
+        LearningResource(
+            name="Terraform Learn",
+            url="https://developer.hashicorp.com/terraform/tutorials",
+        ),
+        LearningResource(
+            name="HashiCorp tutorials", url="https://developer.hashicorp.com/tutorials"
+        ),
     ],
     "ci/cd": [
-        LearningResource(name="GitHub Actions docs", url="https://docs.github.com/en/actions"),
-        LearningResource(name="CI/CD with GitHub Actions", url="https://docs.github.com/en/actions/use-cases-and-examples/building-and-testing"),
+        LearningResource(
+            name="GitHub Actions docs", url="https://docs.github.com/en/actions"
+        ),
+        LearningResource(
+            name="CI/CD with GitHub Actions",
+            url="https://docs.github.com/en/actions/use-cases-and-examples/building-and-testing",
+        ),
     ],
     "testing": [
-        LearningResource(name="pytest documentation", url="https://docs.pytest.org/en/stable/"),
-        LearningResource(name="Testing Best Practices", url="https://testingjavascript.com/"),
+        LearningResource(
+            name="pytest documentation", url="https://docs.pytest.org/en/stable/"
+        ),
+        LearningResource(
+            name="Testing Best Practices", url="https://testingjavascript.com/"
+        ),
     ],
     "tensorflow": [
-        LearningResource(name="TensorFlow tutorials", url="https://www.tensorflow.org/tutorials"),
-        LearningResource(name="Coursera ML Specialization", url="https://www.coursera.org/specializations/machine-learning-introduction"),
+        LearningResource(
+            name="TensorFlow tutorials", url="https://www.tensorflow.org/tutorials"
+        ),
+        LearningResource(
+            name="Coursera ML Specialization",
+            url="https://www.coursera.org/specializations/machine-learning-introduction",
+        ),
     ],
     "pytorch": [
-        LearningResource(name="PyTorch tutorials", url="https://pytorch.org/tutorials/"),
+        LearningResource(
+            name="PyTorch tutorials", url="https://pytorch.org/tutorials/"
+        ),
         LearningResource(name="Fast.ai course", url="https://course.fast.ai/"),
     ],
     "linux": [
         LearningResource(name="Linux Journey", url="https://linuxjourney.com/"),
-        LearningResource(name="OverTheWire Bandit", url="https://overthewire.org/wargames/bandit/"),
+        LearningResource(
+            name="OverTheWire Bandit", url="https://overthewire.org/wargames/bandit/"
+        ),
     ],
     "scikit-learn": [
-        LearningResource(name="Scikit-Learn documentation", url="https://scikit-learn.org/stable/tutorial/"),
-        LearningResource(name="Scikit-Learn User Guide", url="https://scikit-learn.org/stable/user_guide.html"),
+        LearningResource(
+            name="Scikit-Learn documentation",
+            url="https://scikit-learn.org/stable/tutorial/",
+        ),
+        LearningResource(
+            name="Scikit-Learn User Guide",
+            url="https://scikit-learn.org/stable/user_guide.html",
+        ),
     ],
     "pandas": [
-        LearningResource(name="Pandas documentation", url="https://pandas.pydata.org/docs/getting_started/"),
-        LearningResource(name="Kaggle Pandas course", url="https://www.kaggle.com/learn/pandas"),
+        LearningResource(
+            name="Pandas documentation",
+            url="https://pandas.pydata.org/docs/getting_started/",
+        ),
+        LearningResource(
+            name="Kaggle Pandas course", url="https://www.kaggle.com/learn/pandas"
+        ),
     ],
     "statistics": [
-        LearningResource(name="Khan Academy Statistics", url="https://www.khanacademy.org/math/statistics-probability"),
-        LearningResource(name="Think Stats", url="https://greenteapress.com/thinkstats2/html/"),
+        LearningResource(
+            name="Khan Academy Statistics",
+            url="https://www.khanacademy.org/math/statistics-probability",
+        ),
+        LearningResource(
+            name="Think Stats", url="https://greenteapress.com/thinkstats2/html/"
+        ),
     ],
 }
 
