@@ -33,7 +33,7 @@ const DIMENSION_LABELS: Record<string, string> = {
   data: "Data",
   machine_learning: "ML / AI",
   ml_ai: "ML / AI",
-  docs: "Docs",
+  testing: "Testing",
 };
 
 function formatLabel(dimension: string): string {

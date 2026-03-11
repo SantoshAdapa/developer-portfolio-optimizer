@@ -33,6 +33,7 @@ from app.models.schemas import (
     CareerPathSuggestion,
     DeveloperScore,
     GitHubSummary,
+    LearningResource,
     LearningRoadmapResult,
     LearningStep,
     MarketDemandResult,
@@ -326,20 +327,27 @@ _RADAR_SKILL_MAP = {
         "digitalocean",
         "cloudflare",
     ],
-    "docs": [
-        "readme",
-        "documentation",
-        "technical writing",
-        "api docs",
-        "swagger",
-        "openapi",
-        "jsdoc",
-        "sphinx",
-        "mkdocs",
-        "confluence",
-        "wiki",
-        "storybook",
-        "typedoc",
+    "testing": [
+        "jest",
+        "pytest",
+        "mocha",
+        "cypress",
+        "selenium",
+        "playwright",
+        "unit test",
+        "unit testing",
+        "integration testing",
+        "test-driven",
+        "tdd",
+        "bdd",
+        "testing",
+        "junit",
+        "rspec",
+        "vitest",
+        "enzyme",
+        "testing library",
+        "coverage",
+        "qa",
     ],
 }
 
@@ -884,12 +892,27 @@ _DISPLAY_NAME_MAP = {
 }
 
 
+def _skill_present_in_text(skill_name: str, text_lower: str) -> bool:
+    """Check if a skill name appears in text as a distinct term, not a substring.
+
+    Uses word-boundary matching to avoid false positives like
+    'express' matching 'expressed' or 'expression'.
+    """
+    # Special characters in skill names need escaping for regex
+    escaped = re.escape(skill_name)
+    # For multi-word skills (e.g. "spring boot"), match the full phrase
+    # For single-word skills, require word boundaries
+    pattern = rf"(?<![\w\-]){escaped}(?![\w\-])"
+    return bool(re.search(pattern, text_lower))
+
+
 def extract_skills_from_text(resume_text: str) -> list[Skill]:
     """Extract skills from resume text using keyword matching with contextual analysis.
 
     Used as a fallback when AI extraction produces few or no results.
     Uses frequency, surrounding context, and section importance to determine
     proficiency rather than simple keyword presence.
+    Applies word-boundary matching to avoid false positives.
     """
     if not resume_text:
         return []
@@ -906,7 +929,7 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
             # Skip very short names to avoid false positives
             if len(skill_name) <= 2:
                 continue
-            if skill_name not in lower:
+            if not _skill_present_in_text(skill_name, lower):
                 continue
 
             display = _DISPLAY_NAME_MAP.get(skill_name, skill_name.title())
@@ -1143,8 +1166,8 @@ def compute_radar_scores(skills: list[Skill], resume_text: str) -> RadarScores:
         scores[best_cat] += prof_weight.get(skill.proficiency, 14)
         assigned_skills.add(skill_lower)
 
-    # Second pass: text-based context mentions (lower weight, only for unassigned)
-    # Check for project context to weight mentions higher
+    # Second pass: only count text mentions that appear in project/experience
+    # context AND pass word-boundary matching (prevents false inflation)
     project_context = _has_project_context(lower)
 
     for cat, keywords in _RADAR_SKILL_MAP.items():
@@ -1153,10 +1176,12 @@ def compute_radar_scores(skills: list[Skill], resume_text: str) -> RadarScores:
                 continue
             if kw in assigned_skills:
                 continue
-            if kw in lower:
-                # Higher score if keyword appears in project/experience context
-                text_score = 7 if project_context.get(kw, False) else 4
-                scores[cat] += text_score
+            # Only count keywords that are genuinely present as distinct terms
+            if not _skill_present_in_text(kw, lower):
+                continue
+            # Only add score if the keyword appears in project/experience context
+            if project_context.get(kw, False):
+                scores[cat] += 5
 
     # Normalize to 0-100 with diminishing returns
     final: dict[str, int] = {}
@@ -1240,9 +1265,12 @@ def extract_programming_languages(
                 confidence = _compute_language_confidence(
                     key, resume_text, skill.source
                 )
+                proficiency = _reconcile_proficiency_confidence(
+                    skill.proficiency, confidence
+                )
                 languages[canonical] = ProgrammingLanguageScore(
                     name=canonical,
-                    proficiency=skill.proficiency,
+                    proficiency=proficiency,
                     confidence=confidence,
                     context=f"Detected from {skill.source}",
                 )
@@ -1252,10 +1280,11 @@ def extract_programming_languages(
         for key, canonical in _KNOWN_LANGUAGES.items():
             if canonical in languages or len(key) <= 2:
                 continue
-            if key not in lower:
+            if not _skill_present_in_text(key, lower):
                 continue
             prof = _estimate_proficiency_from_text(key, resume_text)
             confidence = _compute_language_confidence(key, resume_text, "resume_text")
+            prof = _reconcile_proficiency_confidence(prof, confidence)
             languages[canonical] = ProgrammingLanguageScore(
                 name=canonical,
                 proficiency=prof,
@@ -1308,6 +1337,25 @@ def _compute_language_confidence(lang_key: str, resume_text: str, source: str) -
     return round(min(1.0, confidence), 2)
 
 
+def _reconcile_proficiency_confidence(
+    proficiency: Proficiency, confidence: float
+) -> Proficiency:
+    """Ensure proficiency and confidence are logically consistent.
+
+    Rules:
+    - Advanced proficiency requires confidence >= 0.55
+    - Beginner proficiency should not have confidence > 0.75
+    - Low confidence (< 0.4) caps proficiency at intermediate
+    """
+    if proficiency == Proficiency.ADVANCED and confidence < 0.55:
+        return Proficiency.INTERMEDIATE
+    if proficiency == Proficiency.BEGINNER and confidence > 0.75:
+        return Proficiency.INTERMEDIATE
+    if confidence < 0.4 and proficiency == Proficiency.ADVANCED:
+        return Proficiency.INTERMEDIATE
+    return proficiency
+
+
 def _extract_section_text(text: str, section_headers: list[str]) -> str:
     """Extract rough section text by finding headers and taking text until next header."""
     result: list[str] = []
@@ -1339,20 +1387,25 @@ def generate_ai_insights(
     skills: list[Skill],
     github: GitHubSummary | None,
     overall: int,
+    resume_text: str = "",
 ) -> AiInsights:
     """Generate structured insights from scoring results.
 
     Produces domain-specific insights based on radar score distribution,
     skill composition, and detected gaps rather than generic category labels.
+    Key strength is determined by project usage frequency, not just proficiency labels.
     """
     strengths: list[str] = []
     weaknesses: list[str] = []
     improvements: list[str] = []
 
+    lower = resume_text.lower() if resume_text else ""
+
     # ── Skill composition analysis ──────────────────────
     tech_skills = [s for s in skills if s.category != "soft_skill"]
     advanced_skills = [s for s in tech_skills if s.proficiency == "advanced"]
     intermediate_skills = [s for s in tech_skills if s.proficiency == "intermediate"]
+    beginner_skills = [s for s in tech_skills if s.proficiency == "beginner"]
     skill_cats = {s.category for s in tech_skills}
 
     # Domain detection: what kind of developer is this?
@@ -1367,13 +1420,14 @@ def generate_ai_insights(
         s.name.lower() in _RADAR_SKILL_MAP.get("devops", []) for s in skills
     )
 
+    # ── Determine key strength based on project context frequency ──
+    # Instead of using proficiency labels, count how often each skill
+    # appears in project/experience context to find the actual strongest skill
+    key_skill = _detect_key_strength(tech_skills, resume_text)
+
     # ── Strengths ───────────────────────────────────────
-    if len(advanced_skills) >= 3:
-        names = ", ".join(s.name for s in advanced_skills[:4])
-        strengths.append(f"Deep expertise in {names}")
-    elif len(advanced_skills) >= 1:
-        names = ", ".join(s.name for s in advanced_skills[:2])
-        strengths.append(f"Strong proficiency in {names}")
+    if key_skill:
+        strengths.append(key_skill)
 
     if has_frontend and has_backend:
         strengths.append("Full-stack capability spanning frontend and backend")
@@ -1400,6 +1454,11 @@ def generate_ai_insights(
     if categories.get("content_quality", 0) >= 70:
         strengths.append("Well-crafted resume with strong content quality")
 
+    # Fallback: ensure at least one strength
+    if not strengths and tech_skills:
+        names = ", ".join(s.name for s in tech_skills[:3])
+        strengths.append(f"Technical foundation in {names}")
+
     # ── Weaknesses ──────────────────────────────────────
     if len(tech_skills) < 5:
         weaknesses.append(
@@ -1423,6 +1482,34 @@ def generate_ai_insights(
 
     if len(advanced_skills) == 0 and len(tech_skills) > 0:
         weaknesses.append("No skills at advanced proficiency level detected")
+
+    if len(beginner_skills) > len(intermediate_skills) + len(advanced_skills):
+        weaknesses.append(
+            "Most skills are at beginner level — focus on deepening core competencies"
+        )
+
+    if not any(s.category == "framework" for s in skills):
+        weaknesses.append(
+            "No frameworks detected — frameworks demonstrate practical project experience"
+        )
+
+    # Fallback: always provide at least one weakness/improvement opportunity
+    if not weaknesses:
+        if len(intermediate_skills) > len(advanced_skills):
+            weaknesses.append(
+                "Several skills at intermediate level — deepening 2-3 to advanced "
+                "would strengthen your profile significantly"
+            )
+        elif not github:
+            weaknesses.append(
+                "No GitHub profile linked — public code contributions "
+                "add significant credibility"
+            )
+        else:
+            weaknesses.append(
+                "Consider expanding into adjacent technology areas to broaden "
+                "your engineering versatility"
+            )
 
     # ── Improvements ────────────────────────────────────
     if not any(s.category == "cloud" for s in skills):
@@ -1459,6 +1546,13 @@ def generate_ai_insights(
     if has_ml and not has_devops:
         improvements.append(
             "Bridge ML and production: learn MLOps tools like Docker, K8s, or cloud ML services"
+        )
+
+    # Fallback: always provide at least one improvement
+    if not improvements:
+        improvements.append(
+            "Build a showcase project combining multiple skills to demonstrate "
+            "end-to-end engineering capability"
         )
 
     # ── Career potential ────────────────────────────────
@@ -1498,6 +1592,72 @@ def generate_ai_insights(
         career_potential=career,
         recommended_improvements=improvements[:6],
     )
+
+
+def _detect_key_strength(skills: list[Skill], resume_text: str) -> str | None:
+    """Determine the developer's key strength from project context frequency.
+
+    Instead of relying solely on proficiency labels (which can be unreliable),
+    this counts how frequently each skill appears in project/experience
+    descriptions and weights by action verb proximity.
+    """
+    if not skills or not resume_text:
+        return None
+
+    lower = resume_text.lower()
+    # Extract project/experience section text for focused analysis
+    project_text = _extract_section_text(
+        lower, ["projects", "experience", "work", "professional"]
+    )
+    if not project_text:
+        project_text = lower
+
+    skill_scores: list[tuple[str, float]] = []
+    for skill in skills:
+        skill_lower = skill.name.lower()
+        # Count mentions in project/experience context
+        freq = project_text.count(skill_lower)
+        if freq == 0:
+            continue
+
+        score = float(freq)
+        # Bonus for action verb proximity (indicates active usage)
+        for verb in _ACTION_VERBS[:15]:  # check top action verbs
+            if verb in project_text:
+                # Check if verb is near the skill mention
+                idx = project_text.find(skill_lower)
+                if idx != -1:
+                    ctx = project_text[max(0, idx - 100) : idx + len(skill_lower) + 100]
+                    if verb in ctx:
+                        score += 0.5
+
+        # Proficiency bonus (but not dominant)
+        if skill.proficiency == Proficiency.ADVANCED:
+            score += 1.0
+        elif skill.proficiency == Proficiency.INTERMEDIATE:
+            score += 0.5
+
+        skill_scores.append((skill.name, score))
+
+    if not skill_scores:
+        # Fall back to proficiency-based if no project context
+        advanced = [s for s in skills if s.proficiency == Proficiency.ADVANCED]
+        if advanced:
+            return f"Strong proficiency in {advanced[0].name}"
+        if skills:
+            return f"Technical foundation in {skills[0].name}"
+        return None
+
+    # Sort by score descending
+    skill_scores.sort(key=lambda x: x[1], reverse=True)
+    top_skill = skill_scores[0][0]
+
+    # If top 2-3 skills are close in score, mention multiple
+    if len(skill_scores) >= 2 and skill_scores[1][1] >= skill_scores[0][1] * 0.7:
+        top_names = [s[0] for s in skill_scores[:2]]
+        return f"Strong project experience in {' and '.join(top_names)}"
+
+    return f"Deep project experience in {top_skill}"
 
 
 # ── Score breakdown builder ──────────────────────────────
@@ -1585,22 +1745,124 @@ _PROJECT_TYPES = {
 }
 
 
+def _count_distinct_projects(resume_text: str, github: GitHubSummary | None) -> int:
+    """Count distinct projects from resume structure rather than keyword frequency.
+
+    Looks for:
+    - Entries in a "Projects" section (each project title/heading = 1 project)
+    - Distinct project names mentioned with action verbs
+    - GitHub repos as separate signal (not double-counted with resume)
+    """
+    if not resume_text:
+        return github.public_repos if github else 0
+
+    lower = resume_text.lower()
+    lines = resume_text.split("\n")
+    project_count = 0
+
+    # Method 1: Count entries in project/experience sections structurally
+    in_project_section = False
+    for line in lines:
+        stripped = line.strip()
+        stripped_lower = stripped.lower()
+
+        # Detect project section headers
+        if (
+            len(stripped.split()) <= 4
+            and any(
+                h in stripped_lower
+                for h in ["project", "portfolio", "experience", "work"]
+            )
+            and (
+                stripped_lower.endswith(":")
+                or stripped.isupper()
+                or stripped.istitle()
+            )
+        ):
+            in_project_section = True
+            continue
+
+        # Detect next section (exit project section)
+        if (
+            in_project_section
+            and stripped
+            and len(stripped.split()) <= 4
+            and (
+                stripped_lower.endswith(":")
+                or stripped.isupper()
+                or stripped.istitle()
+            )
+            and not any(
+                h in stripped_lower
+                for h in ["project", "portfolio", "experience", "work"]
+            )
+        ):
+            in_project_section = False
+            continue
+
+        # In project section: count lines that look like project titles
+        # (non-bullet, non-empty, not too long, looks like a heading)
+        if in_project_section and stripped and not stripped.startswith(
+            ("\u2022", "-", "*", "\u2013", "\u25ba", "\u25aa")
+        ):
+            words = stripped.split()
+            # Project titles are typically 1-8 words, often title-cased
+            if 1 <= len(words) <= 10 and (
+                stripped.istitle()
+                or stripped[0].isupper()
+                or any(
+                    ind in stripped_lower
+                    for ind in ["app", "system", "platform", "tool", "bot"]
+                )
+            ):
+                project_count += 1
+
+    # Method 2: If structural analysis found nothing, use pattern matching
+    # Look for "Built/Developed/Created X" patterns as distinct project indicators
+    if project_count == 0:
+        project_patterns = re.findall(
+            r"(?:built|developed|created|designed|implemented|launched)\s+"
+            r"(?:a\s+|an\s+|the\s+)?"
+            r"[A-Za-z][A-Za-z\s-]{2,30}(?:app|application|system|platform|website|"
+            r"tool|dashboard|pipeline|service|api|bot|library)",
+            lower,
+        )
+        # Deduplicate similar names
+        seen_projects: set[str] = set()
+        for match in project_patterns:
+            # Normalize to check for duplicates
+            key = re.sub(r"\s+", " ", match.strip())[:30]
+            if key not in seen_projects:
+                seen_projects.add(key)
+                project_count += 1
+
+    # Method 3: Absolute minimum — count bullet clusters after project-like headings
+    if project_count == 0:
+        # Count how many times "project" appears as a distinct concept
+        project_mentions = len(
+            re.findall(r"\bproject\b", lower)
+        )
+        # Be conservative: each 2-3 mentions likely refers to the same project
+        project_count = max(1, project_mentions // 2) if project_mentions > 0 else 0
+
+    # Add GitHub repos as distinct signal (take the higher count)
+    if github:
+        # Don't simply add — take max to avoid double-counting
+        project_count = max(project_count, min(github.public_repos, 20))
+
+    return project_count
+
+
 def compute_portfolio_depth(
     skills: list[Skill],
     resume_text: str,
     github: GitHubSummary | None,
 ) -> PortfolioDepthScore:
-    """Analyze portfolio depth based on project signals, tech diversity, and complexity."""
+    """Analyze portfolio depth based on actual project detection, tech diversity, and complexity."""
     lower = resume_text.lower() if resume_text else ""
 
-    # Project count estimation
-    project_count = 0
-    for indicator in _PROJECT_INDICATORS:
-        project_count += lower.count(indicator)
-    # Rough dedup: cap at reasonable estimate
-    project_count = min(project_count, 25)
-    if github:
-        project_count = max(project_count, github.public_repos)
+    # Accurate project count via structural analysis
+    project_count = _count_distinct_projects(resume_text, github)
 
     # Technology diversity (0-100)
     unique_techs: set[str] = set()
@@ -1657,18 +1919,22 @@ def compute_portfolio_depth(
         + complexity * 0.25
         + deployment * 0.20
         + type_balance * 0.20
-        + min(100, project_count * 5) * 0.10
+        + min(100, project_count * 10) * 0.10
     )
     overall = max(0, min(100, overall))
 
     # Summary
     parts: list[str] = []
     if project_count >= 10:
-        parts.append(f"rich portfolio with {project_count}+ projects")
+        parts.append(f"Rich portfolio with {project_count}+ projects")
     elif project_count >= 5:
-        parts.append(f"solid portfolio with {project_count} projects")
+        parts.append(f"Solid portfolio with {project_count} projects")
+    elif project_count >= 2:
+        parts.append(f"Portfolio with {project_count} projects")
+    elif project_count == 1:
+        parts.append("Portfolio with 1 project")
     else:
-        parts.append(f"growing portfolio with {project_count} projects")
+        parts.append("No distinct projects detected")
 
     if len(types_found) >= 3:
         parts.append(f"spanning {len(types_found)} project types")
@@ -1924,22 +2190,87 @@ def _find_skill_match(
 
 # ── Learning Roadmap ─────────────────────────────────────
 
-_LEARNING_RESOURCES: dict[str, list[str]] = {
-    "python": ["Python.org tutorial", "Automate the Boring Stuff", "Real Python"],
-    "javascript": ["MDN Web Docs", "JavaScript.info", "freeCodeCamp"],
-    "typescript": ["TypeScript Handbook", "Total TypeScript course"],
-    "react": ["React.dev", "React Tutorial", "Next.js Learn"],
-    "docker": ["Docker Getting Started", "Docker Curriculum", "Play with Docker"],
-    "kubernetes": ["Kubernetes.io tutorials", "KodeKloud", "Kubernetes the Hard Way"],
-    "aws": ["AWS Skill Builder", "AWS Certified Cloud Practitioner", "A Cloud Guru"],
-    "sql": ["SQLBolt", "Mode Analytics SQL Tutorial", "PostgreSQL Tutorial"],
-    "git": ["Pro Git book", "Learn Git Branching", "GitHub Skills"],
-    "terraform": ["Terraform Learn", "HashiCorp tutorials"],
-    "ci/cd": ["GitHub Actions docs", "CI/CD Pipeline tutorial"],
-    "testing": ["pytest docs", "Test-Driven Development book"],
-    "tensorflow": ["TensorFlow tutorials", "Coursera ML Specialization"],
-    "pytorch": ["PyTorch tutorials", "Fast.ai course"],
-    "linux": ["Linux Journey", "OverTheWire Bandit"],
+_LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
+    "python": [
+        LearningResource(name="Python.org tutorial", url="https://docs.python.org/3/tutorial/"),
+        LearningResource(name="Automate the Boring Stuff", url="https://automatetheboringstuff.com/"),
+        LearningResource(name="Real Python", url="https://realpython.com/"),
+    ],
+    "javascript": [
+        LearningResource(name="MDN Web Docs", url="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide"),
+        LearningResource(name="JavaScript.info", url="https://javascript.info/"),
+        LearningResource(name="freeCodeCamp", url="https://www.freecodecamp.org/learn/javascript-algorithms-and-data-structures/"),
+    ],
+    "typescript": [
+        LearningResource(name="TypeScript Handbook", url="https://www.typescriptlang.org/docs/handbook/"),
+        LearningResource(name="TypeScript Deep Dive", url="https://basarat.gitbook.io/typescript/"),
+    ],
+    "react": [
+        LearningResource(name="React.dev", url="https://react.dev/learn"),
+        LearningResource(name="React Tutorial", url="https://react.dev/learn/tutorial-tic-tac-toe"),
+        LearningResource(name="Next.js Learn", url="https://nextjs.org/learn"),
+    ],
+    "docker": [
+        LearningResource(name="Docker Getting Started", url="https://docs.docker.com/get-started/"),
+        LearningResource(name="Docker Curriculum", url="https://docker-curriculum.com/"),
+        LearningResource(name="Play with Docker", url="https://labs.play-with-docker.com/"),
+    ],
+    "kubernetes": [
+        LearningResource(name="Kubernetes.io tutorials", url="https://kubernetes.io/docs/tutorials/"),
+        LearningResource(name="KodeKloud", url="https://kodekloud.com/courses/kubernetes-for-the-absolute-beginners/"),
+        LearningResource(name="Kubernetes the Hard Way", url="https://github.com/kelseyhightower/kubernetes-the-hard-way"),
+    ],
+    "aws": [
+        LearningResource(name="AWS Skill Builder", url="https://skillbuilder.aws/"),
+        LearningResource(name="AWS Documentation", url="https://docs.aws.amazon.com/"),
+        LearningResource(name="AWS Well-Architected", url="https://aws.amazon.com/architecture/well-architected/"),
+    ],
+    "sql": [
+        LearningResource(name="SQLBolt", url="https://sqlbolt.com/"),
+        LearningResource(name="Mode SQL Tutorial", url="https://mode.com/sql-tutorial/"),
+        LearningResource(name="PostgreSQL Tutorial", url="https://www.postgresqltutorial.com/"),
+    ],
+    "git": [
+        LearningResource(name="Pro Git book", url="https://git-scm.com/book/en/v2"),
+        LearningResource(name="Learn Git Branching", url="https://learngitbranching.js.org/"),
+        LearningResource(name="GitHub Skills", url="https://skills.github.com/"),
+    ],
+    "terraform": [
+        LearningResource(name="Terraform Learn", url="https://developer.hashicorp.com/terraform/tutorials"),
+        LearningResource(name="HashiCorp tutorials", url="https://developer.hashicorp.com/tutorials"),
+    ],
+    "ci/cd": [
+        LearningResource(name="GitHub Actions docs", url="https://docs.github.com/en/actions"),
+        LearningResource(name="CI/CD with GitHub Actions", url="https://docs.github.com/en/actions/use-cases-and-examples/building-and-testing"),
+    ],
+    "testing": [
+        LearningResource(name="pytest documentation", url="https://docs.pytest.org/en/stable/"),
+        LearningResource(name="Testing Best Practices", url="https://testingjavascript.com/"),
+    ],
+    "tensorflow": [
+        LearningResource(name="TensorFlow tutorials", url="https://www.tensorflow.org/tutorials"),
+        LearningResource(name="Coursera ML Specialization", url="https://www.coursera.org/specializations/machine-learning-introduction"),
+    ],
+    "pytorch": [
+        LearningResource(name="PyTorch tutorials", url="https://pytorch.org/tutorials/"),
+        LearningResource(name="Fast.ai course", url="https://course.fast.ai/"),
+    ],
+    "linux": [
+        LearningResource(name="Linux Journey", url="https://linuxjourney.com/"),
+        LearningResource(name="OverTheWire Bandit", url="https://overthewire.org/wargames/bandit/"),
+    ],
+    "scikit-learn": [
+        LearningResource(name="Scikit-Learn documentation", url="https://scikit-learn.org/stable/tutorial/"),
+        LearningResource(name="Scikit-Learn User Guide", url="https://scikit-learn.org/stable/user_guide.html"),
+    ],
+    "pandas": [
+        LearningResource(name="Pandas documentation", url="https://pandas.pydata.org/docs/getting_started/"),
+        LearningResource(name="Kaggle Pandas course", url="https://www.kaggle.com/learn/pandas"),
+    ],
+    "statistics": [
+        LearningResource(name="Khan Academy Statistics", url="https://www.khanacademy.org/math/statistics-probability"),
+        LearningResource(name="Think Stats", url="https://greenteapress.com/thinkstats2/html/"),
+    ],
 }
 
 _SKILL_LEARNING_WEEKS: dict[str, int] = {
@@ -1948,6 +2279,25 @@ _SKILL_LEARNING_WEEKS: dict[str, int] = {
     "none_to_beginner": 4,
     "none_to_intermediate": 8,
 }
+
+
+def _get_resources(skill_name: str) -> list[LearningResource]:
+    """Get learning resources for a skill, with fallback to generic resources."""
+    skill_lower = skill_name.lower()
+    if skill_lower in _LEARNING_RESOURCES:
+        return _LEARNING_RESOURCES[skill_lower]
+    # Fallback: link to a documentation search
+    safe_name = skill_name.replace(" ", "+")
+    return [
+        LearningResource(
+            name=f"{skill_name} official documentation",
+            url=f"https://devdocs.io/search?q={safe_name}",
+        ),
+        LearningResource(
+            name=f"Learn {skill_name}",
+            url=f"https://www.freecodecamp.org/news/search/?query={safe_name}",
+        ),
+    ]
 
 
 def generate_learning_roadmap(
@@ -1963,11 +2313,7 @@ def generate_learning_roadmap(
         target = sm.required_level or "intermediate"
         key = f"{current}_to_{target}"
         weeks = _SKILL_LEARNING_WEEKS.get(key, 6)
-        skill_lower = sm.skill.lower()
-        resources = _LEARNING_RESOURCES.get(
-            skill_lower,
-            [f"{sm.skill} official documentation", f"Online {sm.skill} course"],
-        )
+        resources = _get_resources(sm.skill)
 
         steps.append(
             LearningStep(
@@ -1986,11 +2332,7 @@ def generate_learning_roadmap(
         target = sm.required_level or "intermediate"
         key = f"none_to_{target}"
         weeks = _SKILL_LEARNING_WEEKS.get(key, 8)
-        skill_lower = sm.skill.lower()
-        resources = _LEARNING_RESOURCES.get(
-            skill_lower,
-            [f"{sm.skill} official documentation", f"Beginner {sm.skill} tutorial"],
-        )
+        resources = _get_resources(sm.skill)
 
         steps.append(
             LearningStep(

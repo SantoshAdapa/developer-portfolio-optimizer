@@ -102,7 +102,7 @@ class RadarScores(BaseModel):
     data: int = 0
     ml_ai: int = 0
     devops: int = 0
-    docs: int = 0
+    testing: int = 0
 
 
 class AiInsights(BaseModel):
@@ -160,12 +160,17 @@ class SkillGapResult(BaseModel):
 # ── Learning Roadmap ─────────────────────────────────────
 
 
+class LearningResource(BaseModel):
+    name: str
+    url: str
+
+
 class LearningStep(BaseModel):
     order: int
     skill: str
     current_level: str = ""
     target_level: str = ""
-    resources: list[str] = []
+    resources: list[LearningResource] = []
     estimated_weeks: int = 0
 
 

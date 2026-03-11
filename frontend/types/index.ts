@@ -122,7 +122,7 @@ export interface RadarScores {
   data: number;
   ml_ai: number;
   devops: number;
-  docs: number;
+  testing: number;
 }
 
 export interface AiInsights {
@@ -177,12 +177,17 @@ export interface SkillGapResult {
 
 // ─── Learning Roadmap Types ───────────────────────────────────
 
+export interface LearningResource {
+  name: string;
+  url: string;
+}
+
 export interface LearningStep {
   order: number;
   skill: string;
   current_level: string;
   target_level: string;
-  resources: string[];
+  resources: LearningResource[];
   estimated_weeks: number;
 }
 

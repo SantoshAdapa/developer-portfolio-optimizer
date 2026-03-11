@@ -71,13 +71,16 @@ export function LearningRoadmapPanel({ roadmap }: LearningRoadmapPanelProps) {
               {step.resources.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {step.resources.map((res, i) => (
-                    <span
+                    <a
                       key={i}
-                      className="inline-flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-0.5 text-[10px] text-muted-foreground"
+                      href={typeof res === "string" ? "#" : res.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-white/[0.1] hover:text-white transition-colors"
                     >
                       <ExternalLink className="h-2.5 w-2.5" />
-                      {res}
-                    </span>
+                      {typeof res === "string" ? res : res.name}
+                    </a>
                   ))}
                 </div>
               )}
