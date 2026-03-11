@@ -26,6 +26,7 @@ jobs:
           script: |
             set -e
             cd ~/developer-portfolio-optimizer
+            PROJECT="developer-portfolio-optimizer"
 
             echo "📥 Updating repository..."
             git fetch origin
@@ -39,14 +40,17 @@ jobs:
             sudo docker compose build frontend backend
 
             echo "🏷️ Tagging images for rollback..."
-            sudo docker tag dpo-backend:latest dpo-backend:$COMMIT_SHA
-            sudo docker tag dpo-frontend:latest dpo-frontend:$COMMIT_SHA
+            sudo docker tag ${PROJECT}-backend:latest ${PROJECT}-backend:${COMMIT_SHA}
+            sudo docker tag ${PROJECT}-frontend:latest ${PROJECT}-frontend:${COMMIT_SHA}
 
             echo "🚀 Restarting backend..."
             sudo docker compose up -d --no-deps backend
 
             echo "🚀 Restarting frontend..."
             sudo docker compose up -d --no-deps frontend
+
+            echo "🚀 Starting nginx proxy..."
+            sudo docker compose up -d --no-deps nginx
 
             echo "📦 Running containers:"
             sudo docker ps
