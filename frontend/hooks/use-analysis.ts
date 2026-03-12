@@ -32,5 +32,9 @@ export function useAnalysisResults(analysisId: string | undefined) {
     queryKey: ["analysis-results", analysisId],
     queryFn: () => getAnalysisResults(analysisId!),
     enabled: !!analysisId,
+    refetchInterval: (query) => {
+      const data = query.state.data as Record<string, unknown> | undefined;
+      return data?.status === "processing" ? 2000 : false;
+    },
   });
 }

@@ -12,8 +12,8 @@ from fastapi import Request, HTTPException
 _request_log: dict[str, list[float]] = defaultdict(list)
 
 # Max requests per window per IP
-MAX_REQUESTS = 15
-WINDOW_SECONDS = 30.0
+MAX_REQUESTS = 30
+WINDOW_SECONDS = 60.0
 
 
 def _clean_old(entries: list[float], now: float) -> list[float]:

@@ -65,8 +65,13 @@ async def _github_get(
     resp = await client.get(url, headers=_build_headers(), **kwargs)
     if resp.status_code == 403 and "rate limit" in resp.text.lower():
         logger.warning("GitHub API rate-limit hit for %s", url)
+        token_hint = (
+            " Set a GITHUB_TOKEN environment variable to increase the limit."
+            if not settings.github_token
+            else ""
+        )
         raise httpx.HTTPStatusError(
-            "GitHub API rate limit exceeded",
+            f"GitHub API rate limit exceeded.{token_hint}",
             request=resp.request,
             response=resp,
         )

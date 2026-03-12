@@ -29,15 +29,15 @@ async function apiFetch<T>(
       continue;
     }
 
-    if (!res.ok) {
+    if (!res.ok && res.status !== 202) {
       const error = await res.json().catch(() => ({ detail: "Unknown error" }));
       let message: string;
-      if (res.status === 429) {
-        message = "Too many requests. Please wait a moment and try again.";
-      } else if (typeof error.detail === "string") {
+      if (typeof error.detail === "string") {
         message = error.detail;
       } else if (Array.isArray(error.detail)) {
         message = error.detail.map((e: any) => e.msg).join("; ");
+      } else if (res.status === 429) {
+        message = "Too many requests. Please wait a moment and try again.";
       } else {
         message = `API error: ${res.status}`;
       }
@@ -118,7 +118,42 @@ export async function runAnalysis(params: {
     throw new Error(message);
   }
 
-  return res.json();
+  const data = await res.json();
+
+  // Backend returns 202 with {analysis_id, status: "processing"} — poll until done
+  if (data.status === "processing" && data.analysis_id) {
+    return pollForResults(data.analysis_id);
+  }
+
+  return data;
+}
+
+async function pollForResults(
+  analysisId: string,
+  intervalMs = 2000,
+  maxAttempts = 120,
+) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await delay(intervalMs);
+    const pollUrl = `${API_BASE_URL}/api/v1/analyze/${encodeURIComponent(analysisId)}`;
+    const res = await fetch(pollUrl);
+
+    if (res.status === 202) continue; // still processing
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: "Analysis failed" }));
+      throw new Error(error.detail || `Analysis failed: ${res.status}`);
+    }
+
+    const result = await res.json();
+    if (result.status === "failed") {
+      throw new Error("Analysis failed. Please try again.");
+    }
+    if (result.status === "processing") continue;
+
+    return result;
+  }
+  throw new Error("Analysis timed out. Please try again.");
 }
 
 export async function getAnalysisResults(analysisId: string) {
