@@ -28,6 +28,7 @@ import { SkillGapPanel } from "@/components/results/skill-gap-panel";
 import { LearningRoadmapPanel } from "@/components/results/learning-roadmap-panel";
 import { MarketDemandPanel } from "@/components/results/market-demand-panel";
 import { CareerDirectionPanel } from "@/components/results/career-direction-panel";
+import { JDMatchPanel } from "@/components/results/jd-match-panel";
 import {
   ScoreSkeleton,
   SectionSkeleton,
@@ -277,8 +278,15 @@ export default function ResultsPage() {
           ) : null}
         </motion.section>
 
-        {/* 13 — AI Score Explanation */}
-        <motion.section {...sectionProps(12)}>
+        {/* 13 — JD Match */}
+        {data && !isDemo && (
+          <motion.section {...sectionProps(12)}>
+            <JDMatchPanel analysisId={data.analysis_id} />
+          </motion.section>
+        )}
+
+        {/* 14 — AI Score Explanation */}
+        <motion.section {...sectionProps(13)}>
           {data ? (
             <AiExplanation
               score={data.developer_score}
@@ -290,8 +298,8 @@ export default function ResultsPage() {
           )}
         </motion.section>
 
-        {/* 14 — Benchmark Panel */}
-        <motion.section {...sectionProps(13)}>
+        {/* 15 — Benchmark Panel */}
+        <motion.section {...sectionProps(14)}>
           {benchmarkData ? (
             <BenchmarkPanel benchmark={benchmarkData} />
           ) : benchmarkQuery.isLoading ? (
@@ -299,8 +307,8 @@ export default function ResultsPage() {
           ) : null}
         </motion.section>
 
-        {/* 15 — Career Roadmap */}
-        <motion.section {...sectionProps(14)}>
+        {/* 16 — Career Roadmap */}
+        <motion.section {...sectionProps(15)}>
           {roadmapData ? (
             <CareerRoadmapSection roadmap={roadmapData} />
           ) : roadmap.isLoading ? (

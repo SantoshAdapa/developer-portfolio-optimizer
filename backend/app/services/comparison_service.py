@@ -1,6 +1,6 @@
 """Comparison service — compares two developer analysis results."""
 
-from app.models.schemas import DeveloperScore, GitHubSummary, Skill
+from app.models.schemas import DeveloperScore, GitHubSummary, RadarScores, Skill
 
 
 COMPARISON_DIMENSIONS = [
@@ -130,6 +130,22 @@ def _compare_strengths_weaknesses(
     }
 
 
+def _compute_skill_diversity(skills: list[Skill], github: GitHubSummary | None) -> int:
+    """Compute skill diversity from all available data sources."""
+    techs: set[str] = set()
+    for s in skills:
+        techs.add(s.name.lower())
+    if github:
+        for lang in github.top_languages:
+            techs.add(lang.lower())
+        for repo in github.notable_repos:
+            for t in repo.detected_technologies:
+                techs.add(t.lower())
+            for topic in repo.topics:
+                techs.add(topic.lower())
+    return min(len(techs) * 5, 100)
+
+
 def compare_profiles(
     score_a: DeveloperScore,
     skills_a: list[Skill],
@@ -137,6 +153,8 @@ def compare_profiles(
     skills_b: list[Skill],
     github_a: GitHubSummary | None = None,
     github_b: GitHubSummary | None = None,
+    radar_scores_a: RadarScores | None = None,
+    radar_scores_b: RadarScores | None = None,
 ) -> dict:
     """Compare two developer profiles across all scoring dimensions.
 
@@ -146,11 +164,17 @@ def compare_profiles(
     # ── Score difference ───────────────────────────────────
     score_difference = score_a.overall - score_b.overall
 
+    # Ensure skill_diversity is always computed from actual data
+    cats_a = dict(score_a.categories)
+    cats_b = dict(score_b.categories)
+    if cats_a.get("skill_diversity", 0) == 0:
+        cats_a["skill_diversity"] = _compute_skill_diversity(skills_a, github_a)
+    if cats_b.get("skill_diversity", 0) == 0:
+        cats_b["skill_diversity"] = _compute_skill_diversity(skills_b, github_b)
+
     # ── Choose dimensions based on available data ──────────
-    # If both have GitHub-related scores, use full set; otherwise fallback to resume dims
     has_github_scores = any(
-        score_a.categories.get(d, 0) > 0 or score_b.categories.get(d, 0) > 0
-        for d in COMPARISON_DIMENSIONS
+        cats_a.get(d, 0) > 0 or cats_b.get(d, 0) > 0 for d in COMPARISON_DIMENSIONS
     )
     dims = COMPARISON_DIMENSIONS if has_github_scores else _RESUME_DIMENSIONS
 
@@ -160,8 +184,8 @@ def compare_profiles(
     b_wins = 0
 
     for dim in dims:
-        val_a = score_a.categories.get(dim, 0)
-        val_b = score_b.categories.get(dim, 0)
+        val_a = cats_a.get(dim, 0)
+        val_b = cats_b.get(dim, 0)
         diff = val_a - val_b
         dimension_comparison.append(
             {
@@ -264,4 +288,6 @@ def compare_profiles(
         "project_comparison": project_comparison,
         "strengths_weaknesses": strengths_weaknesses,
         "insights": insights,
+        "radar_scores_a": radar_scores_a,
+        "radar_scores_b": radar_scores_b,
     }

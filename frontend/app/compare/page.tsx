@@ -212,7 +212,11 @@ export default function ComparePage() {
       update(key, {
         isRunningAnalysis: true,
         analysisError: null,
+        analysisComplete: false,
       });
+      // Reset comparison so re-analysis triggers a fresh compare
+      hasCompared.current = false;
+      setComparison(null);
       setFlowStatus(key === "a" ? "analyzingA" : "analyzingB");
       try {
         const res = (await runAnalysis({
@@ -402,6 +406,31 @@ export default function ComparePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Re-compare button ───────────────────────── */}
+      {comparison && stateA.analysisId && stateB.analysisId && (
+        <div className="flex justify-center mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              hasCompared.current = false;
+              setComparison(null);
+              setFlowStatus("idle");
+              handleCompare();
+            }}
+            disabled={isComparing}
+            className="gap-2"
+          >
+            {isComparing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <GitCompareArrows className="h-4 w-4" />
+            )}
+            Re-compare
+          </Button>
+        </div>
+      )}
 
       {/* ── Results ──────────────────────────────────── */}
       <AnimatePresence>

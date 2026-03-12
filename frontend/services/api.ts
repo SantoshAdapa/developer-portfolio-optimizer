@@ -200,3 +200,15 @@ export async function compareProfiles(analysisIdA: string, analysisIdB: string) 
     }),
   });
 }
+
+// ─── JD Match ─────────────────────────────────────────────────
+
+export async function matchJobDescription(analysisId: string, jobDescription: string) {
+  return apiFetch("/api/v1/jd-match", {
+    method: "POST",
+    body: JSON.stringify({
+      analysis_id: analysisId,
+      job_description: jobDescription,
+    }),
+  });
+}

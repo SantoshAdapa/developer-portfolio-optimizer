@@ -310,6 +310,8 @@ class CompareResponse(BaseModel):
     project_comparison: dict = Field(default_factory=dict)
     strengths_weaknesses: dict = Field(default_factory=dict)
     insights: list[str] = []
+    radar_scores_a: RadarScores | None = None
+    radar_scores_b: RadarScores | None = None
 
 
 class ArchetypeDetail(BaseModel):
@@ -331,3 +333,27 @@ class BenchmarkResponse(BaseModel):
         description="archetype_key → fit_score (0-100)",
     )
     archetype_details: list[ArchetypeDetail] = []
+
+
+# ── Job Description Matching ─────────────────────────────
+
+
+class JDMatchRequest(BaseModel):
+    analysis_id: str = Field(pattern=r"^[a-f0-9]{12}$")
+    job_description: str = Field(min_length=20, max_length=20000)
+
+
+class JDMatchSkill(BaseModel):
+    skill: str
+    status: str = Field(description="matched | gap | partial")
+    proficiency: str = ""
+    required_level: str = ""
+
+
+class JDMatchResponse(BaseModel):
+    analysis_id: str
+    match_percentage: int = Field(ge=0, le=100)
+    matched_skills: list[JDMatchSkill] = []
+    missing_skills: list[JDMatchSkill] = []
+    partial_skills: list[JDMatchSkill] = []
+    summary: str = ""

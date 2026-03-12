@@ -8,6 +8,7 @@ from app.models.schemas import (
     CompareResponse,
     DeveloperScore,
     GitHubSummary,
+    RadarScores,
     Skill,
 )
 from app.services.comparison_service import compare_profiles
@@ -50,6 +51,18 @@ def _reconstruct_github(raw: dict | GitHubSummary | None) -> GitHubSummary | Non
         return None
 
 
+def _reconstruct_radar(raw: dict | RadarScores | None) -> RadarScores | None:
+    """Rebuild RadarScores from a stored dict."""
+    if raw is None:
+        return None
+    if isinstance(raw, RadarScores):
+        return raw
+    try:
+        return RadarScores(**raw)
+    except Exception:
+        return None
+
+
 @router.post(
     "", response_model=CompareResponse, dependencies=[Depends(check_rate_limit)]
 )
@@ -76,6 +89,8 @@ async def compare_developers(req: CompareRequest):
         skills_b = _reconstruct_skills(data_b.get("skills", []))
         github_a = _reconstruct_github(data_a.get("github_summary"))
         github_b = _reconstruct_github(data_b.get("github_summary"))
+        radar_a = _reconstruct_radar(data_a.get("radar_scores"))
+        radar_b = _reconstruct_radar(data_b.get("radar_scores"))
     except Exception:
         logger.exception("Failed to reconstruct analysis data for comparison")
         raise HTTPException(
@@ -90,6 +105,8 @@ async def compare_developers(req: CompareRequest):
         skills_b=skills_b,
         github_a=github_a,
         github_b=github_b,
+        radar_scores_a=radar_a,
+        radar_scores_b=radar_b,
     )
 
     return CompareResponse(

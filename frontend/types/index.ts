@@ -303,6 +303,26 @@ export interface CompareResponse {
   project_comparison: Record<string, any>;
   strengths_weaknesses: Record<string, any>;
   insights: string[];
+  radar_scores_a: RadarScores | null;
+  radar_scores_b: RadarScores | null;
+}
+
+// ─── Job Description Match Types ──────────────────────────────
+
+export interface JDMatchSkill {
+  skill: string;
+  status: "matched" | "gap" | "partial";
+  proficiency: string;
+  required_level: string;
+}
+
+export interface JDMatchResponse {
+  analysis_id: string;
+  match_percentage: number;
+  matched_skills: JDMatchSkill[];
+  missing_skills: JDMatchSkill[];
+  partial_skills: JDMatchSkill[];
+  summary: string;
 }
 
 // ─── Radar Chart Types ───────────────────────────────────────

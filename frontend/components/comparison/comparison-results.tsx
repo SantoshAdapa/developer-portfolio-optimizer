@@ -1,13 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Trophy, ArrowRight, Equal, Star, Code2, Lightbulb } from "lucide-react";
+import { Trophy, Equal, Star, Code2, Lightbulb, Shield, Target } from "lucide-react";
 import { ScoreMeter } from "@/components/analysis/score-meter";
 import { SkillRadarChart } from "@/components/charts/skill-radar-chart";
 import type {
   CompareResponse,
   AnalysisResponse,
   RadarDataPoint,
+  RadarScores,
 } from "@/types";
 
 interface ComparisonResultsProps {
@@ -16,16 +17,21 @@ interface ComparisonResultsProps {
   analysisB: AnalysisResponse;
 }
 
-const RADAR_DIMS = [
-  "backend",
-  "frontend",
-  "devops",
-  "data",
-  "machine_learning",
-  "documentation",
-];
+function radarScoresToData(scores: RadarScores | null | undefined): RadarDataPoint[] {
+  if (!scores) return [];
+  const dims: (keyof RadarScores)[] = ["backend", "frontend", "devops", "data", "ml_ai", "testing"];
+  return dims.map((dim) => ({
+    dimension: dim,
+    value: scores[dim] ?? 0,
+    fullMark: 100,
+  }));
+}
 
-function buildRadarData(analysis: AnalysisResponse): RadarDataPoint[] {
+function buildRadarDataFallback(analysis: AnalysisResponse): RadarDataPoint[] {
+  if (analysis.radar_scores) {
+    return radarScoresToData(analysis.radar_scores);
+  }
+  const RADAR_DIMS = ["backend", "frontend", "devops", "data", "ml_ai", "testing"];
   return RADAR_DIMS.map((dim) => {
     const matching = analysis.skills.filter(
       (s) =>
@@ -37,11 +43,7 @@ function buildRadarData(analysis: AnalysisResponse): RadarDataPoint[] {
         ? Math.min(
             100,
             matching.length * 15 +
-              (matching.some(
-                (s) => s.proficiency === "advanced"
-              )
-                ? 25
-                : 0)
+              (matching.some((s) => s.proficiency === "advanced") ? 25 : 0)
           )
         : 0;
     return { dimension: dim, value, fullMark: 100 };
@@ -76,8 +78,12 @@ export function ComparisonResults({
   analysisA,
   analysisB,
 }: ComparisonResultsProps) {
-  const radarA = buildRadarData(analysisA);
-  const radarB = buildRadarData(analysisB);
+  const radarA = comparison.radar_scores_a
+    ? radarScoresToData(comparison.radar_scores_a)
+    : buildRadarDataFallback(analysisA);
+  const radarB = comparison.radar_scores_b
+    ? radarScoresToData(comparison.radar_scores_b)
+    : buildRadarDataFallback(analysisB);
 
   const winnerLabel =
     comparison.winner === "developer_a"
@@ -240,39 +246,76 @@ export function ComparisonResults({
         </motion.div>
       )}
 
-      {/* ── 4. Skill Gap List ────────────────────────── */}
+      {/* ── 4. Skill Differences ────────────────────── */}
       {comparison.skill_gap.length > 0 && (
         <motion.div variants={section} className="glass-card p-6 md:p-8">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-5">
             Skill Differences
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {comparison.skill_gap.map((gap) => {
-              const isA = gap.present_in === "developer_a";
-              return (
-                <motion.div
-                  key={gap.skill}
-                  initial={{ opacity: 0, x: isA ? -8 : 8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.06]"
-                >
-                  <ArrowRight
-                    className={`h-3.5 w-3.5 shrink-0 ${
-                      isA ? "text-violet-400" : "text-blue-400 rotate-180"
-                    }`}
-                  />
-                  <span className="text-sm capitalize">{gap.skill}</span>
-                  <span
-                    className={`ml-auto text-[10px] uppercase tracking-widest font-semibold ${
-                      isA ? "text-violet-400" : "text-blue-400"
-                    }`}
-                  >
-                    {isA ? "Dev A" : "Dev B"}
-                  </span>
-                </motion.div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Developer A unique skills */}
+            {(() => {
+              const aSkills = comparison.skill_gap.filter(
+                (g) => g.present_in === "developer_a"
               );
-            })}
+              return (
+                aSkills.length > 0 && (
+                  <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-violet-400" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-violet-400">
+                        Developer A Strengths
+                      </span>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {aSkills.length} skills
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {aSkills.map((gap) => (
+                        <span
+                          key={gap.skill}
+                          className="text-[11px] px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 capitalize"
+                        >
+                          {gap.skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              );
+            })()}
+
+            {/* Developer B unique skills */}
+            {(() => {
+              const bSkills = comparison.skill_gap.filter(
+                (g) => g.present_in === "developer_b"
+              );
+              return (
+                bSkills.length > 0 && (
+                  <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-blue-400" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-blue-400">
+                        Developer B Strengths
+                      </span>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {bSkills.length} skills
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {bSkills.map((gap) => (
+                        <span
+                          key={gap.skill}
+                          className="text-[11px] px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 capitalize"
+                        >
+                          {gap.skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              );
+            })()}
           </div>
         </motion.div>
       )}
