@@ -28,6 +28,13 @@ class RepoSummary(BaseModel):
     forks: int = 0
     has_readme: bool = False
     topics: list[str] = []
+    readme_content: str = ""
+    detected_technologies: list[str] = []
+    config_files: list[str] = []
+    file_count: int = 0
+    has_ci: bool = False
+    has_docker: bool = False
+    has_tests: bool = False
 
 
 class GitHubSummary(BaseModel):
@@ -123,6 +130,7 @@ class ScoreBreakdown(BaseModel):
     repo_quality: int | None = None
     documentation: int | None = None
     community: int | None = None
+    technology_depth: int | None = None
 
 
 # ── Portfolio Depth ──────────────────────────────────────

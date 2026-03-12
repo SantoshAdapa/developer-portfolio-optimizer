@@ -186,8 +186,8 @@ def test_composite_score_range():
     assert isinstance(score, DeveloperScore)
     assert 0 <= score.overall <= 100
     assert "Score breakdown" in score.justification
-    # All 10 categories should be present when both resume + GitHub are provided
-    assert len(score.categories) == 10
+    # All 11 categories should be present when both resume + GitHub are provided
+    assert len(score.categories) == 11
 
 
 def test_composite_score_no_github():

@@ -61,10 +61,11 @@ WEIGHTS = {
     "formatting_quality": 0.06,
     "impact_quantification": 0.06,
     "keyword_density": 0.06,
-    "github_activity": 0.15,
-    "repo_quality": 0.15,
-    "documentation": 0.10,
-    "community": 0.10,
+    "github_activity": 0.12,
+    "repo_quality": 0.12,
+    "documentation": 0.08,
+    "community": 0.08,
+    "technology_depth": 0.10,
 }
 
 # Which data source each metric depends on.
@@ -76,7 +77,13 @@ _RESUME_METRICS = {
     "impact_quantification",
     "keyword_density",
 }
-_GITHUB_METRICS = {"github_activity", "repo_quality", "documentation", "community"}
+_GITHUB_METRICS = {
+    "github_activity",
+    "repo_quality",
+    "documentation",
+    "community",
+    "technology_depth",
+}
 
 # Resume sections we look for (case-insensitive substrings).
 # 9 sections total → each contributes ~11% toward the 0-100 score.
@@ -619,6 +626,180 @@ def _score_community(github: GitHubSummary | None) -> int:
     return min(100, int(follower_score + star_score))
 
 
+def _score_technology_depth(github: GitHubSummary | None) -> int:
+    """0-100 based on technology stack depth detected from repos.
+
+    Measures how many distinct technologies, frameworks, and tools
+    are actively used across repositories, detected from dependency files,
+    config files, file tree analysis, and README content.
+
+    Components:
+      Unique technologies (40 pts): distinct techs from deep analysis
+      Framework diversity  (25 pts): different frameworks detected
+      Config maturity      (20 pts): presence of config/tooling files
+      Stack completeness   (15 pts): coverage across categories
+    """
+    if not github or not github.notable_repos:
+        return 0
+
+    repos = github.notable_repos
+
+    # Collect all detected technologies across repos
+    all_techs: set[str] = set()
+    all_config_files: set[str] = set()
+    repos_with_tests = 0
+    repos_with_ci = 0
+    repos_with_docker = 0
+
+    for repo in repos:
+        for tech in repo.detected_technologies:
+            all_techs.add(tech)
+        for cf in repo.config_files:
+            all_config_files.add(cf)
+        if repo.has_tests:
+            repos_with_tests += 1
+        if repo.has_ci:
+            repos_with_ci += 1
+        if repo.has_docker:
+            repos_with_docker += 1
+
+    # Also count top_languages
+    for lang in github.top_languages:
+        all_techs.add(lang)
+
+    # Unique technologies (40 pts) — log scale, 15+ techs for full marks
+    tech_count = len(all_techs)
+    if tech_count >= 15:
+        tech_score = 40
+    elif tech_count >= 8:
+        tech_score = int(25 + (tech_count - 8) / 7 * 15)
+    elif tech_count >= 3:
+        tech_score = int(10 + (tech_count - 3) / 5 * 15)
+    else:
+        tech_score = tech_count * 3
+
+    # Framework diversity (25 pts) — different frameworks/libraries
+    _frameworks = {
+        "React",
+        "Next.js",
+        "Vue",
+        "Nuxt.js",
+        "Angular",
+        "Svelte",
+        "Django",
+        "Flask",
+        "FastAPI",
+        "Express.js",
+        "NestJS",
+        "Spring Boot",
+        "TailwindCSS",
+        "Bootstrap",
+        "Material UI",
+        "TensorFlow",
+        "PyTorch",
+        "Scikit-learn",
+        "Keras",
+        "Prisma",
+        "SQLAlchemy",
+        "Sequelize",
+        "TypeORM",
+    }
+    detected_frameworks = all_techs & _frameworks
+    framework_score = min(25, len(detected_frameworks) * 6)
+
+    # Config maturity (20 pts) — tooling sophistication
+    config_score = 0
+    if all_config_files:
+        config_score += min(10, len(all_config_files) * 2)
+    if repos_with_tests > 0:
+        config_score += 4
+    if repos_with_ci > 0:
+        config_score += 3
+    if repos_with_docker > 0:
+        config_score += 3
+    config_score = min(20, config_score)
+
+    # Stack completeness (15 pts) — covers frontend, backend, data, devops, etc.
+    _category_techs = {
+        "frontend": {
+            "React",
+            "Vue",
+            "Angular",
+            "Svelte",
+            "Next.js",
+            "HTML",
+            "CSS",
+            "JavaScript",
+            "TypeScript",
+            "TailwindCSS",
+            "Bootstrap",
+        },
+        "backend": {
+            "Python",
+            "Java",
+            "Go",
+            "Rust",
+            "Node.js",
+            "Django",
+            "Flask",
+            "FastAPI",
+            "Express.js",
+            "NestJS",
+            "Spring Boot",
+            "Ruby",
+            "PHP",
+        },
+        "data": {
+            "PostgreSQL",
+            "MongoDB",
+            "MySQL",
+            "Redis",
+            "SQLite",
+            "Elasticsearch",
+            "Pandas",
+            "NumPy",
+            "SQL",
+            "Firebase",
+            "Prisma",
+            "SQLAlchemy",
+        },
+        "ml_ai": {
+            "TensorFlow",
+            "PyTorch",
+            "Scikit-learn",
+            "OpenCV",
+            "Keras",
+            "Hugging Face Transformers",
+            "LangChain",
+            "XGBoost",
+            "LightGBM",
+            "Machine Learning",
+            "Deep Learning",
+            "NLP",
+            "Computer Vision",
+        },
+        "devops": {
+            "Docker",
+            "Kubernetes",
+            "Terraform",
+            "AWS",
+            "GitHub Actions",
+            "CI/CD",
+            "Jenkins",
+            "Ansible",
+            "Nginx",
+            "Heroku",
+            "Vercel",
+        },
+    }
+    categories_covered = sum(
+        1 for cat_techs in _category_techs.values() if all_techs & cat_techs
+    )
+    completeness_score = min(15, categories_covered * 3)
+
+    return min(100, tech_score + framework_score + config_score + completeness_score)
+
+
 # ── ATS Sub-score functions ──────────────────────────────
 
 
@@ -798,6 +979,7 @@ def compute_developer_score(
         "repo_quality": _score_repo_quality(github),
         "documentation": _score_documentation(github),
         "community": _score_community(github),
+        "technology_depth": _score_technology_depth(github),
     }
 
     # Determine which metrics are applicable based on available data
@@ -907,25 +1089,180 @@ def _skill_present_in_text(skill_name: str, text_lower: str) -> bool:
 
 
 def extract_skills_from_github(github: GitHubSummary) -> list[Skill]:
-    """Extract skills from GitHub profile data: languages, topics, and repo metadata.
+    """Extract skills from GitHub profile data using deep repository analysis.
 
-    Uses top_languages (with percentage-based proficiency), repo topics,
-    and repo descriptions to build a skill list when no resume is available.
+    Sources (in priority order):
+    1. Detected technologies from dependency files (package.json, requirements.txt)
+    2. Detected technologies from file tree analysis (extensions, config files)
+    3. Detected technologies from README content parsing
+    4. top_languages (with percentage-based proficiency)
+    5. Repo topics matched against known skills
+    6. Repo descriptions and names
     """
     skills: list[Skill] = []
     seen: set[str] = set()
 
-    # 1. From top_languages (percentage → proficiency)
+    # ── Technology-to-skill category mapping ──────────────
+    _tech_category_map: dict[str, tuple[str, str]] = {
+        # (canonical_name, SkillCategory)
+        # Languages
+        "python": ("Python", "language"),
+        "javascript": ("JavaScript", "language"),
+        "typescript": ("TypeScript", "language"),
+        "java": ("Java", "language"),
+        "go": ("Go", "language"),
+        "rust": ("Rust", "language"),
+        "ruby": ("Ruby", "language"),
+        "php": ("PHP", "language"),
+        "swift": ("Swift", "language"),
+        "kotlin": ("Kotlin", "language"),
+        "scala": ("Scala", "language"),
+        "dart": ("Dart", "language"),
+        "c": ("C", "language"),
+        "c++": ("C++", "language"),
+        "c#": ("C#", "language"),
+        "r": ("R", "language"),
+        "html": ("HTML", "language"),
+        "css": ("CSS", "language"),
+        "sql": ("SQL", "language"),
+        "shell/bash": ("Shell/Bash", "language"),
+        "lua": ("Lua", "language"),
+        "perl": ("Perl", "language"),
+        "jupyter notebook": ("Jupyter Notebook", "language"),
+        # Frameworks
+        "react": ("React", "framework"),
+        "next.js": ("Next.js", "framework"),
+        "vue": ("Vue", "framework"),
+        "nuxt.js": ("Nuxt.js", "framework"),
+        "angular": ("Angular", "framework"),
+        "svelte": ("Svelte", "framework"),
+        "django": ("Django", "framework"),
+        "flask": ("Flask", "framework"),
+        "fastapi": ("FastAPI", "framework"),
+        "express.js": ("Express.js", "framework"),
+        "nestjs": ("NestJS", "framework"),
+        "spring boot": ("Spring Boot", "framework"),
+        "tailwindcss": ("TailwindCSS", "framework"),
+        "bootstrap": ("Bootstrap", "framework"),
+        "material ui": ("Material UI", "framework"),
+        "styled components": ("Styled Components", "framework"),
+        "redux": ("Redux", "framework"),
+        "zustand": ("Zustand", "framework"),
+        "electron": ("Electron", "framework"),
+        "react native": ("React Native", "framework"),
+        "flutter": ("Flutter", "framework"),
+        # ML/AI frameworks
+        "tensorflow": ("TensorFlow", "framework"),
+        "pytorch": ("PyTorch", "framework"),
+        "keras": ("Keras", "framework"),
+        "scikit-learn": ("Scikit-learn", "framework"),
+        "opencv": ("OpenCV", "framework"),
+        "pandas": ("Pandas", "framework"),
+        "numpy": ("NumPy", "framework"),
+        "matplotlib": ("Matplotlib", "framework"),
+        "seaborn": ("Seaborn", "framework"),
+        "scipy": ("SciPy", "framework"),
+        "hugging face transformers": ("Hugging Face", "framework"),
+        "langchain": ("LangChain", "framework"),
+        "xgboost": ("XGBoost", "framework"),
+        "lightgbm": ("LightGBM", "framework"),
+        "spacy": ("spaCy", "framework"),
+        "nltk": ("NLTK", "framework"),
+        "streamlit": ("Streamlit", "framework"),
+        "gradio": ("Gradio", "framework"),
+        # Databases
+        "postgresql": ("PostgreSQL", "database"),
+        "mongodb": ("MongoDB", "database"),
+        "mysql": ("MySQL", "database"),
+        "redis": ("Redis", "database"),
+        "sqlite": ("SQLite", "database"),
+        "elasticsearch": ("Elasticsearch", "database"),
+        "firebase": ("Firebase", "database"),
+        "prisma": ("Prisma", "database"),
+        "sqlalchemy": ("SQLAlchemy", "database"),
+        "sequelize": ("Sequelize", "database"),
+        "typeorm": ("TypeORM", "database"),
+        # Tools
+        "docker": ("Docker", "tool"),
+        "docker compose": ("Docker Compose", "tool"),
+        "kubernetes": ("Kubernetes", "tool"),
+        "terraform": ("Terraform", "tool"),
+        "ansible": ("Ansible", "tool"),
+        "nginx": ("Nginx", "tool"),
+        "github actions": ("GitHub Actions", "tool"),
+        "ci/cd": ("CI/CD", "tool"),
+        "jenkins": ("Jenkins", "tool"),
+        "git": ("Git", "tool"),
+        "eslint": ("ESLint", "tool"),
+        "prettier": ("Prettier", "tool"),
+        "webpack": ("Webpack", "tool"),
+        "vite": ("Vite", "tool"),
+        "jest": ("Jest", "tool"),
+        "pytest": ("pytest", "tool"),
+        "cypress": ("Cypress", "tool"),
+        "selenium": ("Selenium", "tool"),
+        "playwright": ("Playwright", "tool"),
+        "storybook": ("Storybook", "tool"),
+        "make": ("Make", "tool"),
+        # Cloud
+        "aws": ("AWS", "cloud"),
+        "google cloud": ("Google Cloud", "cloud"),
+        "azure": ("Azure", "cloud"),
+        "heroku": ("Heroku", "cloud"),
+        "vercel": ("Vercel", "cloud"),
+        "netlify": ("Netlify", "cloud"),
+    }
+
+    # Build a reverse lookup for case-insensitive matching
+    _tech_lookup: dict[str, tuple[str, str]] = {}
+    for key, val in _tech_category_map.items():
+        _tech_lookup[key.lower()] = val
+
+    # ── Helper to add skill ──────────────────────────────
+    def _add_skill(
+        name: str, category: str, proficiency: Proficiency, source: str = "github"
+    ) -> None:
+        key = name.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        skills.append(
+            Skill(
+                name=name,
+                category=SkillCategory(category),
+                proficiency=proficiency,
+                source=source,
+            )
+        )
+
+    # ── 1. From detected_technologies (deep analysis) ────
+    # Count how many repos use each technology to estimate proficiency
+    tech_repo_count: dict[str, int] = {}
+    for repo in github.notable_repos:
+        for tech in repo.detected_technologies:
+            tech_lower = tech.lower()
+            tech_repo_count[tech_lower] = tech_repo_count.get(tech_lower, 0) + 1
+
+    for tech_lower, count in tech_repo_count.items():
+        lookup = _tech_lookup.get(tech_lower)
+        if not lookup:
+            continue
+        name, category = lookup
+        # Proficiency based on how many repos use this tech
+        if count >= 4:
+            prof = Proficiency.ADVANCED
+        elif count >= 2:
+            prof = Proficiency.INTERMEDIATE
+        else:
+            prof = Proficiency.BEGINNER
+        _add_skill(name, category, prof)
+
+    # ── 2. From top_languages (percentage-based proficiency) ──
     for lang, pct in github.top_languages.items():
         lang_lower = lang.lower()
-        canonical = _KNOWN_LANGUAGES.get(lang_lower)
-        if not canonical:
-            # Try title-case key (GitHub returns e.g. "Python", "JavaScript")
-            canonical = _KNOWN_LANGUAGES.get(lang_lower, lang)
-        key = canonical.lower()
-        if key in seen:
-            continue
-        seen.add(key)
+        canonical = _KNOWN_LANGUAGES.get(lang_lower, lang)
+        lookup = _tech_lookup.get(canonical.lower())
+        category = lookup[1] if lookup else "language"
 
         if pct >= 30:
             prof = Proficiency.ADVANCED
@@ -934,68 +1271,44 @@ def extract_skills_from_github(github: GitHubSummary) -> list[Skill]:
         else:
             prof = Proficiency.BEGINNER
 
-        skills.append(
-            Skill(
-                name=canonical,
-                category=SkillCategory.LANGUAGE,
-                proficiency=prof,
-                source="github",
-            )
-        )
+        _add_skill(canonical, category, prof)
 
-    # 2. From repo topics → match against _KNOWN_SKILLS
+    # ── 3. From repo topics → match against known skills ──
     all_topics: set[str] = set()
     for repo in github.notable_repos:
         for topic in repo.topics:
             all_topics.add(topic.lower().replace("-", " "))
 
-    _category_map = {
-        "language": SkillCategory.LANGUAGE,
-        "framework": SkillCategory.FRAMEWORK,
-        "tool": SkillCategory.TOOL,
-        "database": SkillCategory.DATABASE,
-        "cloud": SkillCategory.CLOUD,
-    }
+    for topic in all_topics:
+        lookup = _tech_lookup.get(topic)
+        if lookup:
+            name, category = lookup
+            _add_skill(name, category, Proficiency.INTERMEDIATE)
+            continue
+        # Also try matching known skills
+        for cat_name, skill_list in _KNOWN_SKILLS.items():
+            for skill_name in skill_list:
+                if skill_name == topic or topic in skill_name or skill_name in topic:
+                    display = _DISPLAY_NAME_MAP.get(skill_name, skill_name.title())
+                    _category_map = {
+                        "language": SkillCategory.LANGUAGE,
+                        "framework": SkillCategory.FRAMEWORK,
+                        "tool": SkillCategory.TOOL,
+                        "database": SkillCategory.DATABASE,
+                        "cloud": SkillCategory.CLOUD,
+                    }
+                    cat = _category_map.get(cat_name, SkillCategory.TOOL)
+                    _add_skill(display, cat, Proficiency.INTERMEDIATE)
+                    break
 
-    for category, skill_list in _KNOWN_SKILLS.items():
-        for skill_name in skill_list:
-            if skill_name in seen:
-                continue
-            # Match topic exactly or as substring of topic
-            matched = any(
-                skill_name == topic or skill_name in topic for topic in all_topics
-            )
-            if not matched:
-                continue
-            display = _DISPLAY_NAME_MAP.get(skill_name, skill_name.title())
-            seen.add(skill_name)
-            skills.append(
-                Skill(
-                    name=display,
-                    category=_category_map.get(category, SkillCategory.TOOL),
-                    proficiency=Proficiency.INTERMEDIATE,
-                    source="github",
-                )
-            )
-
-    # 3. From repo languages (not captured in top_languages)
+    # ── 4. From individual repo languages ─────────────────
     for repo in github.notable_repos:
         if repo.language:
             lang_lower = repo.language.lower()
             canonical = _KNOWN_LANGUAGES.get(lang_lower, repo.language)
-            key = canonical.lower()
-            if key not in seen:
-                seen.add(key)
-                skills.append(
-                    Skill(
-                        name=canonical,
-                        category=SkillCategory.LANGUAGE,
-                        proficiency=Proficiency.BEGINNER,
-                        source="github",
-                    )
-                )
+            _add_skill(canonical, "language", Proficiency.BEGINNER)
 
-    # 4. Detect frameworks/tools from repo descriptions and names
+    # ── 5. From repo descriptions and names ───────────────
     repo_text_parts: list[str] = []
     for repo in github.notable_repos:
         if repo.description:
@@ -1005,21 +1318,50 @@ def extract_skills_from_github(github: GitHubSummary) -> list[Skill]:
 
     for category, skill_list in _KNOWN_SKILLS.items():
         if category == "language":
-            continue  # Already handled above
+            continue
         for skill_name in skill_list:
             if skill_name in seen or len(skill_name) <= 2:
                 continue
             if _skill_present_in_text(skill_name, repo_text):
                 display = _DISPLAY_NAME_MAP.get(skill_name, skill_name.title())
-                seen.add(skill_name)
-                skills.append(
-                    Skill(
-                        name=display,
-                        category=_category_map.get(category, SkillCategory.TOOL),
-                        proficiency=Proficiency.INTERMEDIATE,
-                        source="github",
-                    )
-                )
+                _add_skill(display, category, Proficiency.INTERMEDIATE)
+
+    # ── 6. Detect domain-specific skills from repo indicators ──
+    has_ml_repos = any(
+        any(
+            t.lower()
+            in (
+                "tensorflow",
+                "pytorch",
+                "scikit-learn",
+                "keras",
+                "opencv",
+                "machine learning",
+                "deep learning",
+                "nlp",
+                "computer vision",
+                "xgboost",
+                "lightgbm",
+                "hugging face transformers",
+            )
+            for t in repo.detected_technologies
+        )
+        for repo in github.notable_repos
+    )
+    if has_ml_repos:
+        _add_skill("Machine Learning", "framework", Proficiency.INTERMEDIATE)
+
+    has_testing = any(repo.has_tests for repo in github.notable_repos)
+    if has_testing:
+        _add_skill("Testing", "tool", Proficiency.INTERMEDIATE)
+
+    has_ci = any(repo.has_ci for repo in github.notable_repos)
+    if has_ci:
+        _add_skill("CI/CD", "tool", Proficiency.INTERMEDIATE)
+
+    has_docker = any(repo.has_docker for repo in github.notable_repos)
+    if has_docker:
+        _add_skill("Docker", "tool", Proficiency.INTERMEDIATE)
 
     return skills
 
@@ -1336,6 +1678,20 @@ def compute_radar_scores(
                     ):
                         scores[cat] += 5
                         assigned_skills.add(topic_lower)
+                        break
+
+        # Fourth pass: detected_technologies from deep repo analysis
+        for repo in github.notable_repos:
+            for tech in repo.detected_technologies:
+                tech_lower = tech.lower()
+                if tech_lower in assigned_skills:
+                    continue
+                for cat, keywords in _RADAR_SKILL_MAP.items():
+                    if tech_lower in keywords or any(
+                        kw == tech_lower for kw in keywords
+                    ):
+                        scores[cat] += 8
+                        assigned_skills.add(tech_lower)
                         break
 
     # Normalize to 0-100 with diminishing returns
@@ -1887,6 +2243,7 @@ def build_score_breakdown(
         repo_quality=categories.get("repo_quality") if has_github else None,
         documentation=categories.get("documentation") if has_github else None,
         community=categories.get("community") if has_github else None,
+        technology_depth=categories.get("technology_depth") if has_github else None,
     )
 
 
@@ -2077,9 +2434,13 @@ def compute_portfolio_depth(
     if github:
         for lang in github.top_languages:
             unique_techs.add(lang.lower())
+        # Add technologies detected from deep analysis
+        for repo in github.notable_repos:
+            for tech in repo.detected_technologies:
+                unique_techs.add(tech.lower())
     tech_div = min(100, len(unique_techs) * 7)
 
-    # Complexity score (0-100): action verbs, architecture terms, scale indicators
+    # Complexity score (0-100): architecture signals from resume text AND GitHub repos
     complexity_terms = [
         "architecture",
         "scalable",
@@ -2101,7 +2462,43 @@ def compute_portfolio_depth(
         "system design",
     ]
     complexity_hits = sum(1 for term in complexity_terms if term in lower)
-    complexity = min(100, complexity_hits * 12)
+
+    # GitHub-based complexity signals
+    if github:
+        for repo in github.notable_repos:
+            # File count as complexity proxy
+            if repo.file_count >= 50:
+                complexity_hits += 2
+            elif repo.file_count >= 20:
+                complexity_hits += 1
+
+            # Config file diversity → architectural maturity
+            if len(repo.config_files) >= 3:
+                complexity_hits += 2
+            elif len(repo.config_files) >= 1:
+                complexity_hits += 1
+
+            # CI/CD, Docker, tests → production-grade complexity
+            if repo.has_ci:
+                complexity_hits += 1
+            if repo.has_docker:
+                complexity_hits += 1
+            if repo.has_tests:
+                complexity_hits += 1
+
+            # Multiple technologies in single repo → complex project
+            if len(repo.detected_technologies) >= 5:
+                complexity_hits += 2
+            elif len(repo.detected_technologies) >= 3:
+                complexity_hits += 1
+
+            # Complexity from descriptions and README
+            desc = (repo.description or "").lower()
+            readme = repo.readme_content.lower() if repo.readme_content else ""
+            combined = desc + " " + readme
+            complexity_hits += sum(1 for term in complexity_terms if term in combined)
+
+    complexity = min(100, complexity_hits * 8)
 
     # Deployment signals (0-100)
     deploy_hits = sum(1 for sig in _DEPLOYMENT_SIGNALS if sig in lower)
@@ -2110,13 +2507,91 @@ def compute_portfolio_depth(
             deploy_hits += 2
         repos_with_topics = sum(1 for r in github.notable_repos if r.topics)
         deploy_hits += repos_with_topics
-    deployment = min(100, deploy_hits * 10)
+        # Count repos with actual deployment indicators
+        for repo in github.notable_repos:
+            if repo.has_docker:
+                deploy_hits += 2
+            if repo.has_ci:
+                deploy_hits += 2
+            deploy_techs = {
+                "Docker",
+                "Kubernetes",
+                "Heroku",
+                "Vercel",
+                "Netlify",
+                "AWS",
+                "Google Cloud",
+                "Azure",
+                "Nginx",
+                "Terraform",
+            }
+            for tech in repo.detected_technologies:
+                if tech in deploy_techs:
+                    deploy_hits += 1
+    deployment = min(100, deploy_hits * 8)
 
     # Project type balance (0-100): how many different types of projects
     types_found: set[str] = set()
     for ptype, keywords in _PROJECT_TYPES.items():
         if any(kw in lower for kw in keywords):
             types_found.add(ptype)
+
+    # Also detect project types from GitHub repo data
+    if github:
+        for repo in github.notable_repos:
+            desc = (repo.description or "").lower()
+            name = repo.name.lower().replace("-", " ").replace("_", " ")
+            readme = repo.readme_content.lower()[:500] if repo.readme_content else ""
+            combined = desc + " " + name + " " + readme + " " + " ".join(repo.topics)
+
+            for ptype, keywords in _PROJECT_TYPES.items():
+                if any(kw in combined for kw in keywords):
+                    types_found.add(ptype)
+
+            # Also detect by technologies
+            repo_techs = {t.lower() for t in repo.detected_technologies}
+            if repo_techs & {
+                "react",
+                "vue",
+                "angular",
+                "svelte",
+                "next.js",
+                "html",
+                "css",
+                "tailwindcss",
+            }:
+                types_found.add("web")
+            if repo_techs & {
+                "django",
+                "flask",
+                "fastapi",
+                "express.js",
+                "nestjs",
+                "spring boot",
+            }:
+                types_found.add("api")
+            if repo_techs & {
+                "tensorflow",
+                "pytorch",
+                "scikit-learn",
+                "keras",
+                "opencv",
+                "pandas",
+                "numpy",
+            }:
+                types_found.add("data")
+            if repo_techs & {"react native", "flutter", "swift", "kotlin"}:
+                types_found.add("mobile")
+            if repo_techs & {
+                "docker",
+                "kubernetes",
+                "terraform",
+                "ansible",
+                "ci/cd",
+                "github actions",
+            }:
+                types_found.add("devops")
+
     type_balance = min(100, len(types_found) * 20)
 
     # Overall portfolio depth

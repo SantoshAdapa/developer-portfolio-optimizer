@@ -20,6 +20,7 @@ const barColors: Record<string, string> = {
   "repo quality": "from-amber-500 to-yellow-400",
   documentation: "from-pink-500 to-rose-400",
   community: "from-indigo-500 to-blue-400",
+  "technology depth": "from-cyan-500 to-teal-400",
 };
 
 function getBarGradient(name: string): string {

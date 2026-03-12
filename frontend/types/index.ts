@@ -29,6 +29,13 @@ export interface RepoSummary {
   forks: number;
   has_readme: boolean;
   topics: string[];
+  readme_content: string;
+  detected_technologies: string[];
+  config_files: string[];
+  file_count: number;
+  has_ci: boolean;
+  has_docker: boolean;
+  has_tests: boolean;
 }
 
 export interface GitHubSummary {
@@ -143,6 +150,7 @@ export interface ScoreBreakdown {
   repo_quality: number | null;
   documentation: number | null;
   community: number | null;
+  technology_depth: number | null;
 }
 
 // ─── Portfolio Depth Types ────────────────────────────────────
