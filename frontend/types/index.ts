@@ -314,6 +314,7 @@ export interface JDMatchSkill {
   status: "matched" | "gap" | "partial";
   proficiency: string;
   required_level: string;
+  match_type: "exact" | "alias" | "semantic" | "none";
 }
 
 export interface JDMatchResponse {
@@ -322,7 +323,24 @@ export interface JDMatchResponse {
   matched_skills: JDMatchSkill[];
   missing_skills: JDMatchSkill[];
   partial_skills: JDMatchSkill[];
+  preferred_matched: JDMatchSkill[];
+  confidence: "high" | "medium" | "low";
+  label: string;
+  domain_distribution: Record<string, number>;
   summary: string;
+}
+
+export interface RoleTemplateInfo {
+  key: string;
+  label: string;
+  required_skills: string[];
+  preferred_skills: string[];
+}
+
+export interface ExperienceLevelInfo {
+  key: string;
+  label: string;
+  description: string;
 }
 
 // ─── Radar Chart Types ───────────────────────────────────────

@@ -212,3 +212,34 @@ export async function matchJobDescription(analysisId: string, jobDescription: st
     }),
   });
 }
+
+export async function matchJobDescriptionByRole(analysisId: string, roleKey: string) {
+  return apiFetch("/api/v1/jd-match/role", {
+    method: "POST",
+    body: JSON.stringify({
+      analysis_id: analysisId,
+      role_key: roleKey,
+    }),
+  });
+}
+
+export async function matchJobDescriptionByLevel(
+  analysisId: string,
+  experienceLevel: string
+) {
+  return apiFetch("/api/v1/jd-match/level", {
+    method: "POST",
+    body: JSON.stringify({
+      analysis_id: analysisId,
+      experience_level: experienceLevel,
+    }),
+  });
+}
+
+export async function getRoleTemplates() {
+  return apiFetch<import("@/types").RoleTemplateInfo[]>("/api/v1/jd-match/roles");
+}
+
+export async function getExperienceLevels() {
+  return apiFetch<import("@/types").ExperienceLevelInfo[]>("/api/v1/jd-match/levels");
+}

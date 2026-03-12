@@ -47,6 +47,8 @@ from app.models.schemas import (
     SkillGapResult,
     SkillMatch,
 )
+from app.data.skill_normalization import normalize_skill
+from app.data.role_templates import get_skill_domain
 
 # ── Weight configuration ─────────────────────────────────
 
@@ -1360,6 +1362,10 @@ def extract_skills_from_github(github: GitHubSummary) -> list[Skill]:
     if has_docker:
         _add_skill("Docker", "tool", Proficiency.INTERMEDIATE)
 
+    # Normalize skill names to canonical form
+    for skill in skills:
+        skill.name = normalize_skill(skill.name)
+
     return skills
 
 
@@ -2156,6 +2162,10 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
                 )
             )
 
+    # Normalize skill names to canonical form
+    for skill in skills:
+        skill.name = normalize_skill(skill.name)
+
     return skills
 
 
@@ -2579,6 +2589,32 @@ def compute_radar_scores(
             if domain_key not in domain_counts and scores[cat_key] > 0:
                 # Reduce scores from incidental mentions (keep 30%)
                 scores[cat_key] *= 0.3
+
+    # ── Step 5: Domain-based scoring via normalization ────
+    # Use the canonical skill domain mapping to catch skills the keyword
+    # lists might have missed (e.g. ML synonyms).
+    _domain_to_radar = {
+        "ML/AI": "ml_ai",
+        "Backend": "backend",
+        "Frontend": "frontend",
+        "DevOps": "devops",
+        "Data": "data",
+        "Testing": "testing",
+    }
+    for skill in skills:
+        canon = normalize_skill(skill.name)
+        if canon.lower() in assigned_skills:
+            continue
+        domain = get_skill_domain(canon)
+        radar_cat = _domain_to_radar.get(domain)
+        if radar_cat:
+            prof_weight = {
+                Proficiency.ADVANCED: 18,
+                Proficiency.INTERMEDIATE: 12,
+                Proficiency.BEGINNER: 6,
+            }
+            scores[radar_cat] += prof_weight.get(skill.proficiency, 12)
+            assigned_skills.add(canon.lower())
 
     # Normalize to 0-100 with diminishing returns
     final: dict[str, int] = {}
@@ -3694,7 +3730,16 @@ def compute_skill_gaps(
     """
     skill_map: dict[str, str] = {}
     for s in skills:
-        skill_map[s.name.lower()] = s.proficiency
+        # Add both raw and normalized form for maximum matching coverage
+        raw_key = s.name.lower()
+        canon_key = normalize_skill(s.name).lower()
+        prof = (
+            s.proficiency.value
+            if hasattr(s.proficiency, "value")
+            else str(s.proficiency)
+        )
+        skill_map[raw_key] = prof
+        skill_map[canon_key] = prof
 
     # Also check resume text for keywords
     lower = resume_text.lower() if resume_text else ""
@@ -3816,12 +3861,25 @@ def _find_skill_match(
     skill_map: dict[str, str],
     resume_lower: str,
 ) -> str | None:
-    """Find if a target skill matches any user skill (with aliases)."""
-    # Direct match
-    if target in skill_map:
-        return skill_map[target]
+    """Find if a target skill matches any user skill (with aliases and normalization)."""
+    # Normalize both target and all skill map keys
+    target_lower = target.strip().lower()
+    target_canon = normalize_skill(target).lower()
 
-    # Alias matching
+    # Direct match on original key
+    if target_lower in skill_map:
+        return skill_map[target_lower]
+
+    # Canonical normalized match
+    if target_canon in skill_map:
+        return skill_map[target_canon]
+
+    # Check all skill map entries by normalizing them
+    for key, val in skill_map.items():
+        if normalize_skill(key).lower() == target_canon:
+            return val
+
+    # Legacy alias matching (kept for backward compat)
     aliases: dict[str, list[str]] = {
         "node.js": ["nodejs", "node"],
         "react": ["react.js", "reactjs"],
@@ -3837,9 +3895,9 @@ def _find_skill_match(
         "responsive design": ["css", "tailwind", "bootstrap"],
     }
 
-    check_targets = [target]
-    if target in aliases:
-        check_targets.extend(aliases[target])
+    check_targets = [target_lower]
+    if target_lower in aliases:
+        check_targets.extend(aliases[target_lower])
 
     for alias in check_targets:
         if alias in skill_map:

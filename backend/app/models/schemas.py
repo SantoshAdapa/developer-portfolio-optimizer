@@ -343,11 +343,25 @@ class JDMatchRequest(BaseModel):
     job_description: str = Field(min_length=20, max_length=20000)
 
 
+class JDMatchByRoleRequest(BaseModel):
+    analysis_id: str = Field(pattern=r"^[a-f0-9]{12}$")
+    role_key: str = Field(min_length=2, max_length=100)
+
+
+class JDMatchByLevelRequest(BaseModel):
+    analysis_id: str = Field(pattern=r"^[a-f0-9]{12}$")
+    experience_level: str = Field(min_length=2, max_length=50)
+
+
 class JDMatchSkill(BaseModel):
     skill: str
     status: str = Field(description="matched | gap | partial")
     proficiency: str = ""
     required_level: str = ""
+    match_type: str = Field(
+        default="exact",
+        description="exact | alias | semantic | none",
+    )
 
 
 class JDMatchResponse(BaseModel):
@@ -356,4 +370,21 @@ class JDMatchResponse(BaseModel):
     matched_skills: list[JDMatchSkill] = []
     missing_skills: list[JDMatchSkill] = []
     partial_skills: list[JDMatchSkill] = []
+    preferred_matched: list[JDMatchSkill] = []
+    confidence: str = Field(default="medium", description="high | medium | low")
+    label: str = ""
+    domain_distribution: dict[str, int] = Field(default_factory=dict)
     summary: str = ""
+
+
+class RoleTemplateInfo(BaseModel):
+    key: str
+    label: str
+    required_skills: list[str] = []
+    preferred_skills: list[str] = []
+
+
+class ExperienceLevelInfo(BaseModel):
+    key: str
+    label: str
+    description: str = ""

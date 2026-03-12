@@ -15,6 +15,7 @@ from app.ai.prompts.project_ideas import PROJECT_IDEAS_PROMPT
 from app.ai.prompts.skill_extraction import SKILL_EXTRACTION_PROMPT
 from app.ai.rag_pipeline import build_rag_context, rag_generate
 from app.config import settings
+from app.data.skill_normalization import normalize_skill
 from app.models.schemas import (
     CareerRoadmap,
     GitHubSummary,
@@ -271,7 +272,7 @@ async def extract_skills_with_ai(resume_text: str) -> list[Skill]:
                 continue
             skills.append(
                 Skill(
-                    name=item["name"],
+                    name=normalize_skill(item["name"]),
                     category=_normalize_category(item.get("category", "tool")),
                     proficiency=_normalize_proficiency(
                         item.get("proficiency", "intermediate")
