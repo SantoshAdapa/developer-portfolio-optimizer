@@ -58,6 +58,28 @@ export default function ComparePage() {
     []
   );
 
+  // ── Remove file handler ────────────────────────────────
+  const handleRemoveFile = useCallback(
+    (key: DevKey) => {
+      update(key, {
+        resumeFile: null,
+        resumeId: null,
+        isUploadSuccess: false,
+        uploadError: null,
+        analysisComplete: false,
+        analysisId: null,
+        analysisError: null,
+        isRunningAnalysis: false,
+      });
+      if (key === "a") setAnalysisDataA(null);
+      else setAnalysisDataB(null);
+      setComparison(null);
+      hasCompared.current = false;
+      setFlowStatus("idle");
+    },
+    [update]
+  );
+
   // ── File handlers ──────────────────────────────────────
   const handleFile = useCallback(
     async (key: DevKey, file: File) => {
@@ -236,6 +258,7 @@ export default function ComparePage() {
           color="violet"
           state={stateA}
           onFileSelected={(f) => handleFile("a", f)}
+          onRemoveFile={() => handleRemoveFile("a")}
           onGitHubSubmit={(u) => handleGitHub("a", u)}
           onAnalyze={() => handleAnalyze("a")}
         />
@@ -244,6 +267,7 @@ export default function ComparePage() {
           color="blue"
           state={stateB}
           onFileSelected={(f) => handleFile("b", f)}
+          onRemoveFile={() => handleRemoveFile("b")}
           onGitHubSubmit={(u) => handleGitHub("b", u)}
           onAnalyze={() => handleAnalyze("b")}
         />

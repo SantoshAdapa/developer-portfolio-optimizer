@@ -48,6 +48,7 @@ interface ComparisonPanelProps {
   color: "violet" | "blue";
   state: DeveloperInputState;
   onFileSelected: (file: File) => void;
+  onRemoveFile?: () => void;
   onGitHubSubmit: (username: string) => void;
   onAnalyze: () => void;
   disabled?: boolean;
@@ -103,6 +104,7 @@ export function ComparisonPanel({
   color,
   state,
   onFileSelected,
+  onRemoveFile,
   onGitHubSubmit,
   onAnalyze,
   disabled = false,
@@ -137,6 +139,7 @@ export function ComparisonPanel({
         </p>
         <FileUploader
           onFileSelected={onFileSelected}
+          onRemove={onRemoveFile}
           isUploading={state.isUploadingResume}
           isSuccess={state.isUploadSuccess}
           error={state.uploadError}
