@@ -85,6 +85,7 @@ export async function analyzeGitHub(username: string) {
 export async function runAnalysis(params: {
   file?: File;
   github_username?: string;
+  resume_id?: string;
 }) {
   const formData = new FormData();
   if (params.file) {
@@ -95,6 +96,9 @@ export async function runAnalysis(params: {
       "github_url",
       `https://github.com/${params.github_username}`
     );
+  }
+  if (params.resume_id && !params.file) {
+    formData.append("resume_id", params.resume_id);
   }
 
   const url = `${API_BASE_URL}/api/v1/analyze`;

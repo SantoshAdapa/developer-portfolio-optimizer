@@ -88,10 +88,11 @@ async def get_analysis(
 async def run_analysis(
     file: UploadFile | None = File(None),
     github_url: str = Form(""),
+    resume_id: str = Form(""),
 ):
     """Full analysis pipeline: resume and/or GitHub."""
     # ── Require at least one input ─────────────────────
-    if not file and not github_url:
+    if not file and not github_url and not resume_id:
         raise HTTPException(
             status_code=400,
             detail="Provide a resume file and/or a GitHub profile URL",
@@ -115,6 +116,22 @@ async def run_analysis(
     # ── Save & extract resume (if provided) ────────────
     resume_text = ""
     analysis_id: str | None = None
+    prev_skills: list[Skill] = []
+
+    # Try reusing a previously uploaded resume
+    if resume_id and not file:
+        prev = store.load("resume", resume_id)
+        if prev:
+            resume_text = prev.get("text", "")
+            analysis_id = resume_id
+            # Restore previously extracted skills
+            raw_skills = prev.get("skills", [])
+            for rs in raw_skills:
+                if isinstance(rs, dict):
+                    try:
+                        prev_skills.append(Skill(**rs))
+                    except Exception:
+                        pass
 
     if file:
         try:
@@ -156,7 +173,7 @@ async def run_analysis(
     result_map = dict(zip(coro_labels, raw_results))
 
     # Unpack skills
-    skills: list[Skill] = []
+    skills: list[Skill] = list(prev_skills)  # Seed with previously extracted skills
     if "skills" in result_map:
         if isinstance(result_map["skills"], BaseException):
             logger.exception("Skill extraction failed", exc_info=result_map["skills"])

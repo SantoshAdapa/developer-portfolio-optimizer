@@ -22,7 +22,7 @@ export function useAnalyzeGitHub() {
 
 export function useRunAnalysis() {
   return useMutation({
-    mutationFn: (params: { file?: File; github_username?: string }) =>
+    mutationFn: (params: { file?: File; github_username?: string; resume_id?: string }) =>
       runAnalysis(params),
   });
 }

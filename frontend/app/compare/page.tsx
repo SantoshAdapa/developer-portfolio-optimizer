@@ -218,6 +218,7 @@ export default function ComparePage() {
         const res = (await runAnalysis({
           file: st.resumeFile ?? undefined,
           github_username: st.githubUsername || undefined,
+          resume_id: !st.resumeFile && st.resumeId ? st.resumeId : undefined,
         })) as AnalysisResponse;
 
         update(key, {

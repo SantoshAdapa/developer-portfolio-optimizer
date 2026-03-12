@@ -112,7 +112,7 @@ function AnalyzePageContent() {
   }, [analyzeGitHub, setGithubUsername]);
 
   const canAnalyze =
-    (resumeFile || githubUsername) &&
+    (resumeFile || resumeId || githubUsername) &&
     stage !== "processing" &&
     !uploadResume.isPending;
 
@@ -126,6 +126,7 @@ function AnalyzePageContent() {
       {
         file: resumeFile ?? undefined,
         github_username: githubUsername ?? undefined,
+        resume_id: !resumeFile && resumeId ? resumeId : undefined,
       },
       {
         onSuccess: (data: any) => {
@@ -144,7 +145,7 @@ function AnalyzePageContent() {
         },
       }
     );
-  }, [canAnalyze, resumeFile, githubUsername, runAnalysis, completeAll, router]);
+  }, [canAnalyze, resumeFile, resumeId, githubUsername, runAnalysis, completeAll, router]);
 
   // ── Render ───────────────────────────────────────────────
   return (
