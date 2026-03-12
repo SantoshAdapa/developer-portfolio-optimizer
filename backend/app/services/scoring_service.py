@@ -1390,8 +1390,14 @@ def extract_resume_projects(resume_text: str) -> list[dict]:
     sections = _split_into_sections(lines)
 
     # ── Step 2: Extract projects from relevant sections ───
-    project_sections = ["projects", "experience", "work", "professional experience",
-                        "work experience", "project experience"]
+    project_sections = [
+        "projects",
+        "experience",
+        "work",
+        "professional experience",
+        "work experience",
+        "project experience",
+    ]
     for section_name, section_lines in sections:
         if not any(ps in section_name.lower() for ps in project_sections):
             continue
@@ -1426,12 +1432,9 @@ def _split_into_sections(lines: list[str]) -> list[tuple[str, list[str]]]:
 
         # Detect section headings
         words = stripped.split()
-        no_bullet = not stripped.startswith(
-            ("\u2022", "-", "*", "\u2013")
-        )
+        no_bullet = not stripped.startswith(("\u2022", "-", "*", "\u2013"))
         is_letter_only = stripped[0].isupper() and all(
-            c.isalpha() or c.isspace() or c in "&/-:"
-            for c in stripped.rstrip(":")
+            c.isalpha() or c.isspace() or c in "&/-:" for c in stripped.rstrip(":")
         )
         is_heading = (
             len(words) <= 6
@@ -1487,12 +1490,14 @@ def _extract_projects_from_section(section_lines: list[str]) -> list[dict]:
         )
 
         # Check for date patterns (common in experience entries)
-        has_date = bool(re.search(
-            r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|"
-            r"january|february|march|april|june|july|august|september|"
-            r"october|november|december|present|current|\d{4})\b",
-            stripped.lower(),
-        ))
+        has_date = bool(
+            re.search(
+                r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|"
+                r"january|february|march|april|june|july|august|september|"
+                r"october|november|december|present|current|\d{4})\b",
+                stripped.lower(),
+            )
+        )
 
         # A title line or a line with dates starts a new project entry
         if is_title and (has_date or len(stripped.split()) <= 12) and not is_bullet:
@@ -1706,38 +1711,119 @@ def _detect_technologies_in_text(text_lower: str) -> list[str]:
 # Domain classification based on detected technologies
 _DOMAIN_TECH_MAP: dict[str, set[str]] = {
     "ml": {
-        "tensorflow", "pytorch", "keras", "scikit-learn", "opencv", "xgboost",
-        "lightgbm", "hugging face transformers", "langchain", "spacy", "nltk",
-        "machine learning", "deep learning", "neural network", "computer vision",
-        "nlp", "reinforcement learning", "model training", "feature engineering",
-        "streamlit", "gradio",
+        "tensorflow",
+        "pytorch",
+        "keras",
+        "scikit-learn",
+        "opencv",
+        "xgboost",
+        "lightgbm",
+        "hugging face transformers",
+        "langchain",
+        "spacy",
+        "nltk",
+        "machine learning",
+        "deep learning",
+        "neural network",
+        "computer vision",
+        "nlp",
+        "reinforcement learning",
+        "model training",
+        "feature engineering",
+        "streamlit",
+        "gradio",
     },
     "data": {
-        "pandas", "numpy", "matplotlib", "seaborn", "scipy", "sql", "postgresql",
-        "mysql", "mongodb", "redis", "elasticsearch", "sqlite", "cassandra",
-        "dynamodb", "firebase", "supabase", "neo4j", "prisma", "sqlalchemy",
+        "pandas",
+        "numpy",
+        "matplotlib",
+        "seaborn",
+        "scipy",
+        "sql",
+        "postgresql",
+        "mysql",
+        "mongodb",
+        "redis",
+        "elasticsearch",
+        "sqlite",
+        "cassandra",
+        "dynamodb",
+        "firebase",
+        "supabase",
+        "neo4j",
+        "prisma",
+        "sqlalchemy",
     },
     "web": {
-        "react", "next.js", "vue", "angular", "svelte", "tailwindcss", "bootstrap",
-        "material ui", "styled components", "redux", "gatsby", "nuxt.js",
-        "framer motion", "responsive design", "html", "css", "figma",
+        "react",
+        "next.js",
+        "vue",
+        "angular",
+        "svelte",
+        "tailwindcss",
+        "bootstrap",
+        "material ui",
+        "styled components",
+        "redux",
+        "gatsby",
+        "nuxt.js",
+        "framer motion",
+        "responsive design",
+        "html",
+        "css",
+        "figma",
     },
     "api": {
-        "fastapi", "django", "flask", "express.js", "nestjs", "spring boot",
-        "spring", "ruby on rails", "laravel", "asp.net", ".net", "rest api",
-        "graphql", "grpc", "microservices",
+        "fastapi",
+        "django",
+        "flask",
+        "express.js",
+        "nestjs",
+        "spring boot",
+        "spring",
+        "ruby on rails",
+        "laravel",
+        "asp.net",
+        ".net",
+        "rest api",
+        "graphql",
+        "grpc",
+        "microservices",
     },
     "devops": {
-        "docker", "kubernetes", "terraform", "ansible", "ci/cd", "jenkins",
-        "github actions", "gitlab ci", "aws", "azure", "gcp", "heroku",
-        "vercel", "netlify", "nginx", "linux",
+        "docker",
+        "kubernetes",
+        "terraform",
+        "ansible",
+        "ci/cd",
+        "jenkins",
+        "github actions",
+        "gitlab ci",
+        "aws",
+        "azure",
+        "gcp",
+        "heroku",
+        "vercel",
+        "netlify",
+        "nginx",
+        "linux",
     },
     "mobile": {
-        "react native", "flutter", "swift", "kotlin", "dart",
+        "react native",
+        "flutter",
+        "swift",
+        "kotlin",
+        "dart",
     },
     "testing": {
-        "jest", "pytest", "cypress", "selenium", "playwright", "unit testing",
-        "integration testing", "tdd",
+        "jest",
+        "pytest",
+        "cypress",
+        "selenium",
+        "playwright",
+        "unit testing",
+        "integration testing",
+        "tdd",
     },
 }
 
@@ -1753,34 +1839,65 @@ def _classify_project_domain(technologies: list[str], description: str) -> str:
 
     # Also check description for domain keywords
     domain_keywords = {
-        "ml": ["machine learning", "deep learning", "neural", "model", "training",
-               "prediction", "classification",
-               "regression", "detection",
-               "recognition", "computer vision",
-               "nlp", "ai",
-               "artificial intelligence"],
-        "data": ["data analysis", "data pipeline",
-                 "etl", "analytics", "dashboard",
-                 "data warehouse",
-                 "data engineering",
-                 "visualization", "reporting"],
-        "web": ["website", "web app", "frontend",
-                "landing page", "ui",
-                "user interface",
-                "responsive", "single page",
-                "spa"],
-        "api": ["api", "backend", "server",
-                "endpoint", "microservice",
-                "rest", "authentication",
-                "authorization"],
-        "devops": ["deploy", "infrastructure",
-                   "pipeline", "container",
-                   "cloud", "monitoring",
-                   "automation",
-                   "provisioning"],
-        "mobile": ["mobile", "ios", "android",
-                   "app store",
-                   "cross-platform"],
+        "ml": [
+            "machine learning",
+            "deep learning",
+            "neural",
+            "model",
+            "training",
+            "prediction",
+            "classification",
+            "regression",
+            "detection",
+            "recognition",
+            "computer vision",
+            "nlp",
+            "ai",
+            "artificial intelligence",
+        ],
+        "data": [
+            "data analysis",
+            "data pipeline",
+            "etl",
+            "analytics",
+            "dashboard",
+            "data warehouse",
+            "data engineering",
+            "visualization",
+            "reporting",
+        ],
+        "web": [
+            "website",
+            "web app",
+            "frontend",
+            "landing page",
+            "ui",
+            "user interface",
+            "responsive",
+            "single page",
+            "spa",
+        ],
+        "api": [
+            "api",
+            "backend",
+            "server",
+            "endpoint",
+            "microservice",
+            "rest",
+            "authentication",
+            "authorization",
+        ],
+        "devops": [
+            "deploy",
+            "infrastructure",
+            "pipeline",
+            "container",
+            "cloud",
+            "monitoring",
+            "automation",
+            "provisioning",
+        ],
+        "mobile": ["mobile", "ios", "android", "app store", "cross-platform"],
     }
 
     for domain, keywords in domain_keywords.items():
@@ -1794,13 +1911,37 @@ def _classify_project_domain(technologies: list[str], description: str) -> str:
 
 
 _COMPLEXITY_TERMS = [
-    "architecture", "scalable", "distributed", "microservice", "caching",
-    "queue", "concurrent", "async", "real-time", "optimization",
-    "algorithm", "encryption", "authentication", "authorization",
-    "rate limit", "load balanc", "database design", "system design",
-    "pipeline", "multi-threaded", "parallel", "clustering",
-    "api gateway", "message broker", "event-driven", "websocket",
-    "oauth", "jwt", "rbac", "ssl", "https",
+    "architecture",
+    "scalable",
+    "distributed",
+    "microservice",
+    "caching",
+    "queue",
+    "concurrent",
+    "async",
+    "real-time",
+    "optimization",
+    "algorithm",
+    "encryption",
+    "authentication",
+    "authorization",
+    "rate limit",
+    "load balanc",
+    "database design",
+    "system design",
+    "pipeline",
+    "multi-threaded",
+    "parallel",
+    "clustering",
+    "api gateway",
+    "message broker",
+    "event-driven",
+    "websocket",
+    "oauth",
+    "jwt",
+    "rbac",
+    "ssl",
+    "https",
 ]
 
 
@@ -1953,9 +2094,7 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
     }
 
     # ── Add skills from project-detected technologies ──
-    for tech, count in sorted(
-        tech_project_count.items(), key=lambda x: -x[1]
-    ):
+    for tech, count in sorted(tech_project_count.items(), key=lambda x: -x[1]):
         lookup = _resume_tech_lookup.get(tech)
         if not lookup:
             continue
@@ -3171,8 +3310,13 @@ def compute_portfolio_depth(
 
     # Detect project types from structured resume projects
     _domain_to_ptype = {
-        "ml": "data", "data": "data", "web": "web", "api": "api",
-        "devops": "devops", "mobile": "mobile", "testing": "library",
+        "ml": "data",
+        "data": "data",
+        "web": "web",
+        "api": "api",
+        "devops": "devops",
+        "mobile": "mobile",
+        "testing": "library",
     }
     for proj in resume_projects:
         domain = proj.get("domain", "general")
