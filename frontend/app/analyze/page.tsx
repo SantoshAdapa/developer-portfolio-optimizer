@@ -106,6 +106,11 @@ function AnalyzePageContent() {
     [analyzeGitHub]
   );
 
+  const handleDisconnectGitHub = useCallback(() => {
+    setGithubUsername(null);
+    analyzeGitHub.reset();
+  }, [analyzeGitHub, setGithubUsername]);
+
   const canAnalyze =
     (resumeFile || githubUsername) &&
     stage !== "processing" &&
@@ -219,8 +224,10 @@ function AnalyzePageContent() {
               </div>
               <GitHubInput
                 onSubmit={handleGitHubSubmit}
+                onDisconnect={handleDisconnectGitHub}
                 isLoading={analyzeGitHub.isPending}
                 isSuccess={!!githubUsername}
+                connectedUsername={githubUsername}
                 error={
                   analyzeGitHub.isError
                     ? analyzeGitHub.error?.message || "GitHub analysis failed"

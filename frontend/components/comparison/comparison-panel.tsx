@@ -50,6 +50,7 @@ interface ComparisonPanelProps {
   onFileSelected: (file: File) => void;
   onRemoveFile?: () => void;
   onGitHubSubmit: (username: string) => void;
+  onDisconnectGitHub?: () => void;
   onAnalyze: () => void;
   disabled?: boolean;
   restoredFile?: { name: string; size: number } | null;
@@ -107,6 +108,7 @@ export function ComparisonPanel({
   onFileSelected,
   onRemoveFile,
   onGitHubSubmit,
+  onDisconnectGitHub,
   onAnalyze,
   disabled = false,
   restoredFile = null,
@@ -156,8 +158,10 @@ export function ComparisonPanel({
         </p>
         <GitHubInput
           onSubmit={onGitHubSubmit}
+          onDisconnect={onDisconnectGitHub}
           isLoading={state.isAnalyzingGithub}
           isSuccess={state.isGithubSuccess}
+          connectedUsername={state.isGithubSuccess ? state.githubUsername : null}
           error={state.githubError}
         />
       </div>

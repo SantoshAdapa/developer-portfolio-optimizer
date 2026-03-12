@@ -102,13 +102,34 @@ export default function ComparePage() {
         analysisError: null,
         isRunningAnalysis: false,
       });
-      if (key === "a") setAnalysisDataA(null);
-      else setAnalysisDataB(null);
+      if (key === "a") { setAnalysisDataA(null); setResumeMetaA(null); setPersistedA((prev) => prev ? { ...prev, resumeId: null, isUploadSuccess: false } : null); }
+      else { setAnalysisDataB(null); setResumeMetaB(null); setPersistedB((prev) => prev ? { ...prev, resumeId: null, isUploadSuccess: false } : null); }
       setComparison(null);
       hasCompared.current = false;
       setFlowStatus("idle");
     },
-    [update]
+    [update, setResumeMetaA, setResumeMetaB, setPersistedA, setPersistedB]
+  );
+
+  // ── Disconnect GitHub handler ──────────────────────────
+  const handleDisconnectGitHub = useCallback(
+    (key: DevKey) => {
+      update(key, {
+        githubUsername: "",
+        isGithubSuccess: false,
+        githubError: null,
+        analysisComplete: false,
+        analysisId: null,
+        analysisError: null,
+        isRunningAnalysis: false,
+      });
+      if (key === "a") { setAnalysisDataA(null); setPersistedA((prev) => prev ? { ...prev, githubUsername: "", isGithubSuccess: false } : null); }
+      else { setAnalysisDataB(null); setPersistedB((prev) => prev ? { ...prev, githubUsername: "", isGithubSuccess: false } : null); }
+      setComparison(null);
+      hasCompared.current = false;
+      setFlowStatus("idle");
+    },
+    [update, setPersistedA, setPersistedB]
   );
 
   // ── File handlers ──────────────────────────────────────
@@ -307,6 +328,7 @@ export default function ComparePage() {
           onFileSelected={(f) => handleFile("a", f)}
           onRemoveFile={() => handleRemoveFile("a")}
           onGitHubSubmit={(u) => handleGitHub("a", u)}
+          onDisconnectGitHub={() => handleDisconnectGitHub("a")}
           onAnalyze={() => handleAnalyze("a")}
           restoredFile={!stateA.resumeFile && resumeMetaA ? resumeMetaA : null}
         />
@@ -317,6 +339,7 @@ export default function ComparePage() {
           onFileSelected={(f) => handleFile("b", f)}
           onRemoveFile={() => handleRemoveFile("b")}
           onGitHubSubmit={(u) => handleGitHub("b", u)}
+          onDisconnectGitHub={() => handleDisconnectGitHub("b")}
           onAnalyze={() => handleAnalyze("b")}
           restoredFile={!stateB.resumeFile && resumeMetaB ? resumeMetaB : null}
         />

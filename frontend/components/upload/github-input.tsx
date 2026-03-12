@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Github, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Github, CheckCircle2, XCircle, Loader2, Unplug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 interface GitHubInputProps {
   onSubmit: (username: string) => void;
+  onDisconnect?: () => void;
   isLoading?: boolean;
   isSuccess?: boolean;
   error?: string | null;
+  connectedUsername?: string | null;
 }
 
 function extractUsername(input: string): string {
@@ -27,9 +29,11 @@ function extractUsername(input: string): string {
 
 export function GitHubInput({
   onSubmit,
+  onDisconnect,
   isLoading = false,
   isSuccess = false,
   error = null,
+  connectedUsername = null,
 }: GitHubInputProps) {
   const [value, setValue] = useState("");
 
@@ -41,7 +45,39 @@ export function GitHubInput({
     }
   };
 
+  const handleDisconnect = () => {
+    setValue("");
+    onDisconnect?.();
+  };
+
   const username = extractUsername(value);
+  const displayUsername = connectedUsername || username;
+
+  // Show connected state with disconnect option
+  if (isSuccess && displayUsername) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 px-4 py-3">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span className="text-sm text-emerald-400 font-medium flex-1 truncate">
+            @{displayUsername}
+          </span>
+          {onDisconnect && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleDisconnect}
+              className="h-7 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
+            >
+              <Unplug className="h-3.5 w-3.5 mr-1" />
+              Disconnect
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
@@ -90,18 +126,6 @@ export function GitHubInput({
           >
             <XCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
-          </motion.div>
-        )}
-
-        {isSuccess && username && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-2 text-sm text-emerald-400"
-          >
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>GitHub profile found: @{username}</span>
           </motion.div>
         )}
       </AnimatePresence>
