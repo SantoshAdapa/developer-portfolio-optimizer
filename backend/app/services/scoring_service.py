@@ -2367,7 +2367,9 @@ def compute_radar_scores(
 
     # Determine primary domain(s)
     total_projects = sum(domain_counts.values()) if domain_counts else 1
-    primary_domain = max(domain_counts, key=lambda k: domain_counts[k]) if domain_counts else None
+    primary_domain = (
+        max(domain_counts, key=lambda k: domain_counts[k]) if domain_counts else None
+    )
 
     # Domain-to-radar boost: amplify categories that match the dev's actual focus
     _domain_to_radar_boost = {
@@ -2391,8 +2393,18 @@ def compute_radar_scores(
     # ── Step 2: Skills-based scoring (context-aware) ─────
     # Ambiguous skills are routed based on project domain context
     _ambiguous_skills = {
-        "python", "java", "javascript", "typescript", "c++", "c#",
-        "go", "golang", "rust", "ruby", "php", "sql",
+        "python",
+        "java",
+        "javascript",
+        "typescript",
+        "c++",
+        "c#",
+        "go",
+        "golang",
+        "rust",
+        "ruby",
+        "php",
+        "sql",
     }
 
     # Default radar category for ambiguous languages when no domain context
@@ -2450,7 +2462,11 @@ def compute_radar_scores(
             continue
 
         # For ambiguous skills (languages), route based on primary project domain
-        if skill_lower in _ambiguous_skills and len(matching_cats) > 1 and primary_domain:
+        if (
+            skill_lower in _ambiguous_skills
+            and len(matching_cats) > 1
+            and primary_domain
+        ):
             domain_cat = _domain_to_radar_boost.get(primary_domain)
             if domain_cat and domain_cat in matching_cats:
                 matching_cats = [domain_cat]
@@ -2499,7 +2515,11 @@ def compute_radar_scores(
             if not matching_cats:
                 continue
 
-            if lang_lower in _ambiguous_skills and len(matching_cats) > 1 and primary_domain:
+            if (
+                lang_lower in _ambiguous_skills
+                and len(matching_cats) > 1
+                and primary_domain
+            ):
                 domain_cat = _domain_to_radar_boost.get(primary_domain)
                 if domain_cat and domain_cat in matching_cats:
                     matching_cats = [domain_cat]
