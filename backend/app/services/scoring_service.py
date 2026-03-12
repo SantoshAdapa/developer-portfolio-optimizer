@@ -1366,13 +1366,455 @@ def extract_skills_from_github(github: GitHubSummary) -> list[Skill]:
     return skills
 
 
-def extract_skills_from_text(resume_text: str) -> list[Skill]:
-    """Extract skills from resume text using keyword matching with contextual analysis.
+def extract_resume_projects(resume_text: str) -> list[dict]:
+    """Extract structured project information from resume text.
 
-    Used as a fallback when AI extraction produces few or no results.
-    Uses frequency, surrounding context, and section importance to determine
-    proficiency rather than simple keyword presence.
-    Applies word-boundary matching to avoid false positives.
+    Parses resume into individual projects (from Projects, Experience, Work
+    sections) and for each project extracts:
+      - name: project title
+      - description: the full text block for this project
+      - technologies: technologies detected in this project's description
+      - domain: classified domain (web, api, data, ml, mobile, devops, library)
+      - complexity_signals: count of architecture/complexity indicators
+
+    This mirrors the per-repo analysis done for GitHub, producing a unified
+    structure that downstream functions can consume identically.
+    """
+    if not resume_text:
+        return []
+
+    lines = resume_text.split("\n")
+    projects: list[dict] = []
+
+    # ── Step 1: Split text into section blocks ────────────
+    sections = _split_into_sections(lines)
+
+    # ── Step 2: Extract projects from relevant sections ───
+    project_sections = ["projects", "experience", "work", "professional experience",
+                        "work experience", "project experience"]
+    for section_name, section_lines in sections:
+        if not any(ps in section_name.lower() for ps in project_sections):
+            continue
+        section_projects = _extract_projects_from_section(section_lines)
+        projects.extend(section_projects)
+
+    # ── Step 3: If no projects found structurally, try the whole text ──
+    if not projects:
+        projects = _extract_projects_from_flat_text(resume_text)
+
+    # ── Step 4: Enrich each project with technology and domain analysis ──
+    for proj in projects:
+        desc_lower = proj["description"].lower()
+        proj["technologies"] = _detect_technologies_in_text(desc_lower)
+        proj["domain"] = _classify_project_domain(proj["technologies"], desc_lower)
+        proj["complexity_signals"] = _count_complexity_signals(desc_lower)
+
+    return projects
+
+
+def _split_into_sections(lines: list[str]) -> list[tuple[str, list[str]]]:
+    """Split resume lines into named sections based on heading detection."""
+    sections: list[tuple[str, list[str]]] = []
+    current_name = "header"
+    current_lines: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            current_lines.append(line)
+            continue
+
+        # Detect section headings
+        words = stripped.split()
+        no_bullet = not stripped.startswith(
+            ("\u2022", "-", "*", "\u2013")
+        )
+        is_letter_only = stripped[0].isupper() and all(
+            c.isalpha() or c.isspace() or c in "&/-:"
+            for c in stripped.rstrip(":")
+        )
+        is_heading = (
+            len(words) <= 6
+            and len(stripped) <= 60
+            and (
+                stripped.isupper()
+                or stripped.istitle()
+                or stripped.endswith(":")
+                or is_letter_only
+            )
+            and no_bullet
+        )
+
+        if is_heading and len(stripped) > 2:
+            if current_lines:
+                sections.append((current_name, current_lines))
+            current_name = stripped.rstrip(":")
+            current_lines = []
+        else:
+            current_lines.append(line)
+
+    if current_lines:
+        sections.append((current_name, current_lines))
+
+    return sections
+
+
+def _extract_projects_from_section(section_lines: list[str]) -> list[dict]:
+    """Extract individual projects from a section's lines.
+
+    Uses heuristics: project titles are non-bullet lines that appear before
+    bullet-point descriptions, or lines with a date range / pipe separator.
+    """
+    projects: list[dict] = []
+    current_name = ""
+    current_desc_lines: list[str] = []
+
+    for line in section_lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        is_bullet = stripped.startswith(
+            ("\u2022", "-", "*", "\u2013", "\u25ba", "\u25aa")
+        )
+
+        # Detect project/job title: non-bullet, has uppercase start, not too long
+        is_title = (
+            not is_bullet
+            and len(stripped) <= 120
+            and stripped[0].isupper()
+            and not stripped.startswith(("http", "www"))
+        )
+
+        # Check for date patterns (common in experience entries)
+        has_date = bool(re.search(
+            r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|"
+            r"january|february|march|april|june|july|august|september|"
+            r"october|november|december|present|current|\d{4})\b",
+            stripped.lower(),
+        ))
+
+        # A title line or a line with dates starts a new project entry
+        if is_title and (has_date or len(stripped.split()) <= 12) and not is_bullet:
+            # Save previous project
+            if current_name and current_desc_lines:
+                desc = "\n".join(current_desc_lines)
+                projects.append({"name": current_name, "description": desc})
+            elif current_desc_lines and not current_name:
+                # First block without a clear title
+                desc = "\n".join(current_desc_lines)
+                projects.append({"name": "Project", "description": desc})
+
+            current_name = stripped
+            current_desc_lines = []
+        else:
+            current_desc_lines.append(stripped)
+
+    # Save last project
+    if current_name and current_desc_lines:
+        desc = "\n".join(current_desc_lines)
+        projects.append({"name": current_name, "description": desc})
+    elif current_desc_lines:
+        desc = "\n".join(current_desc_lines)
+        projects.append({"name": "Project", "description": desc})
+
+    return projects
+
+
+def _extract_projects_from_flat_text(resume_text: str) -> list[dict]:
+    """Fallback: extract projects from unstructured text using action verb patterns."""
+    lower = resume_text.lower()
+    project_patterns = re.findall(
+        r"((?:built|developed|created|designed|implemented|launched|deployed)\s+"
+        r"(?:a\s+|an\s+|the\s+)?[A-Za-z][\w\s\-,/()]{10,200}?)(?:\.|$|\n)",
+        lower,
+    )
+
+    projects: list[dict] = []
+    seen: set[str] = set()
+    for match in project_patterns:
+        key = match.strip()[:40]
+        if key in seen:
+            continue
+        seen.add(key)
+        # Grab surrounding context (200 chars before and after)
+        idx = lower.find(match)
+        ctx_start = max(0, idx - 200)
+        ctx_end = min(len(lower), idx + len(match) + 200)
+        context = resume_text[ctx_start:ctx_end]
+        projects.append({"name": match.strip()[:60].title(), "description": context})
+
+    # If still nothing, treat the whole resume as one project block
+    if not projects and len(resume_text.strip()) > 50:
+        projects.append({"name": "Resume", "description": resume_text})
+
+    return projects
+
+
+# Technology detection for resume text (shared with GitHub pipeline)
+_TECHNOLOGY_PATTERNS: dict[str, str] = {
+    # ML/AI
+    "tensorflow": "tensorflow",
+    "pytorch": "pytorch",
+    "keras": "keras",
+    "scikit-learn": "scikit-learn",
+    "sklearn": "scikit-learn",
+    "opencv": "opencv",
+    "pandas": "pandas",
+    "numpy": "numpy",
+    "matplotlib": "matplotlib",
+    "seaborn": "seaborn",
+    "scipy": "scipy",
+    "xgboost": "xgboost",
+    "lightgbm": "lightgbm",
+    "huggingface": "hugging face transformers",
+    "hugging face": "hugging face transformers",
+    "transformers": "hugging face transformers",
+    "langchain": "langchain",
+    "spacy": "spacy",
+    "nltk": "nltk",
+    "streamlit": "streamlit",
+    "gradio": "gradio",
+    "machine learning": "machine learning",
+    "deep learning": "deep learning",
+    "neural network": "neural network",
+    "computer vision": "computer vision",
+    "natural language processing": "nlp",
+    "nlp": "nlp",
+    "reinforcement learning": "reinforcement learning",
+    "model training": "model training",
+    "feature engineering": "feature engineering",
+    # Frontend
+    "react": "react",
+    "next.js": "next.js",
+    "nextjs": "next.js",
+    "vue": "vue",
+    "vue.js": "vue",
+    "angular": "angular",
+    "svelte": "svelte",
+    "tailwind": "tailwindcss",
+    "tailwindcss": "tailwindcss",
+    "bootstrap": "bootstrap",
+    "material ui": "material ui",
+    "styled-components": "styled components",
+    "redux": "redux",
+    "gatsby": "gatsby",
+    "nuxt": "nuxt.js",
+    "framer motion": "framer motion",
+    "responsive design": "responsive design",
+    "figma": "figma",
+    # Backend
+    "fastapi": "fastapi",
+    "django": "django",
+    "flask": "flask",
+    "express": "express.js",
+    "express.js": "express.js",
+    "nest.js": "nestjs",
+    "nestjs": "nestjs",
+    "spring boot": "spring boot",
+    "spring": "spring",
+    "rails": "ruby on rails",
+    "ruby on rails": "ruby on rails",
+    "laravel": "laravel",
+    "asp.net": "asp.net",
+    ".net": ".net",
+    "rest api": "rest api",
+    "graphql": "graphql",
+    "grpc": "grpc",
+    "microservices": "microservices",
+    # Databases
+    "postgresql": "postgresql",
+    "postgres": "postgresql",
+    "mysql": "mysql",
+    "mongodb": "mongodb",
+    "redis": "redis",
+    "elasticsearch": "elasticsearch",
+    "sqlite": "sqlite",
+    "cassandra": "cassandra",
+    "dynamodb": "dynamodb",
+    "firebase": "firebase",
+    "supabase": "supabase",
+    "neo4j": "neo4j",
+    "prisma": "prisma",
+    "sqlalchemy": "sqlalchemy",
+    # Languages
+    "python": "python",
+    "javascript": "javascript",
+    "typescript": "typescript",
+    "java": "java",
+    "c\\+\\+": "c++",
+    "c#": "c#",
+    "golang": "go",
+    "rust": "rust",
+    "ruby": "ruby",
+    "php": "php",
+    "swift": "swift",
+    "kotlin": "kotlin",
+    "scala": "scala",
+    "dart": "dart",
+    "html": "html",
+    "css": "css",
+    "sql": "sql",
+    # DevOps / Tools
+    "docker": "docker",
+    "kubernetes": "kubernetes",
+    "k8s": "kubernetes",
+    "terraform": "terraform",
+    "ansible": "ansible",
+    "ci/cd": "ci/cd",
+    "jenkins": "jenkins",
+    "github actions": "github actions",
+    "gitlab ci": "gitlab ci",
+    "aws": "aws",
+    "amazon web services": "aws",
+    "azure": "azure",
+    "gcp": "gcp",
+    "google cloud": "gcp",
+    "heroku": "heroku",
+    "vercel": "vercel",
+    "netlify": "netlify",
+    "nginx": "nginx",
+    "linux": "linux",
+    # Testing
+    "jest": "jest",
+    "pytest": "pytest",
+    "cypress": "cypress",
+    "selenium": "selenium",
+    "playwright": "playwright",
+    "unit test": "unit testing",
+    "unit testing": "unit testing",
+    "integration testing": "integration testing",
+    "test-driven": "tdd",
+    "tdd": "tdd",
+}
+
+
+def _detect_technologies_in_text(text_lower: str) -> list[str]:
+    """Detect technologies mentioned in a text block using word-boundary matching.
+
+    Returns canonical technology names found in the text.
+    """
+    found: set[str] = set()
+    for pattern, canonical in _TECHNOLOGY_PATTERNS.items():
+        if len(pattern) <= 2:
+            continue
+        if _skill_present_in_text(pattern, text_lower):
+            found.add(canonical)
+    return sorted(found)
+
+
+# Domain classification based on detected technologies
+_DOMAIN_TECH_MAP: dict[str, set[str]] = {
+    "ml": {
+        "tensorflow", "pytorch", "keras", "scikit-learn", "opencv", "xgboost",
+        "lightgbm", "hugging face transformers", "langchain", "spacy", "nltk",
+        "machine learning", "deep learning", "neural network", "computer vision",
+        "nlp", "reinforcement learning", "model training", "feature engineering",
+        "streamlit", "gradio",
+    },
+    "data": {
+        "pandas", "numpy", "matplotlib", "seaborn", "scipy", "sql", "postgresql",
+        "mysql", "mongodb", "redis", "elasticsearch", "sqlite", "cassandra",
+        "dynamodb", "firebase", "supabase", "neo4j", "prisma", "sqlalchemy",
+    },
+    "web": {
+        "react", "next.js", "vue", "angular", "svelte", "tailwindcss", "bootstrap",
+        "material ui", "styled components", "redux", "gatsby", "nuxt.js",
+        "framer motion", "responsive design", "html", "css", "figma",
+    },
+    "api": {
+        "fastapi", "django", "flask", "express.js", "nestjs", "spring boot",
+        "spring", "ruby on rails", "laravel", "asp.net", ".net", "rest api",
+        "graphql", "grpc", "microservices",
+    },
+    "devops": {
+        "docker", "kubernetes", "terraform", "ansible", "ci/cd", "jenkins",
+        "github actions", "gitlab ci", "aws", "azure", "gcp", "heroku",
+        "vercel", "netlify", "nginx", "linux",
+    },
+    "mobile": {
+        "react native", "flutter", "swift", "kotlin", "dart",
+    },
+    "testing": {
+        "jest", "pytest", "cypress", "selenium", "playwright", "unit testing",
+        "integration testing", "tdd",
+    },
+}
+
+
+def _classify_project_domain(technologies: list[str], description: str) -> str:
+    """Classify a project's primary domain based on its technologies and description."""
+    tech_set = set(technologies)
+    domain_scores: dict[str, int] = {}
+
+    for domain, domain_techs in _DOMAIN_TECH_MAP.items():
+        overlap = tech_set & domain_techs
+        domain_scores[domain] = len(overlap)
+
+    # Also check description for domain keywords
+    domain_keywords = {
+        "ml": ["machine learning", "deep learning", "neural", "model", "training",
+               "prediction", "classification",
+               "regression", "detection",
+               "recognition", "computer vision",
+               "nlp", "ai",
+               "artificial intelligence"],
+        "data": ["data analysis", "data pipeline",
+                 "etl", "analytics", "dashboard",
+                 "data warehouse",
+                 "data engineering",
+                 "visualization", "reporting"],
+        "web": ["website", "web app", "frontend",
+                "landing page", "ui",
+                "user interface",
+                "responsive", "single page",
+                "spa"],
+        "api": ["api", "backend", "server",
+                "endpoint", "microservice",
+                "rest", "authentication",
+                "authorization"],
+        "devops": ["deploy", "infrastructure",
+                   "pipeline", "container",
+                   "cloud", "monitoring",
+                   "automation",
+                   "provisioning"],
+        "mobile": ["mobile", "ios", "android",
+                   "app store",
+                   "cross-platform"],
+    }
+
+    for domain, keywords in domain_keywords.items():
+        for kw in keywords:
+            if kw in description:
+                domain_scores[domain] = domain_scores.get(domain, 0) + 1
+
+    if not domain_scores or max(domain_scores.values()) == 0:
+        return "general"
+    return max(domain_scores, key=lambda k: domain_scores[k])
+
+
+_COMPLEXITY_TERMS = [
+    "architecture", "scalable", "distributed", "microservice", "caching",
+    "queue", "concurrent", "async", "real-time", "optimization",
+    "algorithm", "encryption", "authentication", "authorization",
+    "rate limit", "load balanc", "database design", "system design",
+    "pipeline", "multi-threaded", "parallel", "clustering",
+    "api gateway", "message broker", "event-driven", "websocket",
+    "oauth", "jwt", "rbac", "ssl", "https",
+]
+
+
+def _count_complexity_signals(text_lower: str) -> int:
+    """Count architecture and complexity signals in text."""
+    return sum(1 for term in _COMPLEXITY_TERMS if term in text_lower)
+
+
+def extract_skills_from_text(resume_text: str) -> list[Skill]:
+    """Extract skills from resume text using project-aware technology detection.
+
+    Extracts structured projects from the resume and detects technologies
+    per project, then aggregates into skills with proficiency based on
+    frequency across projects and contextual signals.
     """
     if not resume_text:
         return []
@@ -1381,12 +1823,171 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
     skills: list[Skill] = []
     seen: set[str] = set()
 
-    # Detect resume sections for section-aware weighting
-    section_weights = _detect_section_context(resume_text)
+    # ── Extract structured projects and detect technologies per project ──
+    projects = extract_resume_projects(resume_text)
+    tech_project_count: dict[str, int] = {}
+    for proj in projects:
+        for tech in proj.get("technologies", []):
+            tech_project_count[tech] = tech_project_count.get(tech, 0) + 1
 
+    # ── Build the GitHub-style tech category lookup ──────
+    # Reuse the same _tech_category_map pattern from extract_skills_from_github
+    _resume_tech_lookup: dict[str, tuple[str, str]] = {
+        # ML/AI
+        "tensorflow": ("TensorFlow", "framework"),
+        "pytorch": ("PyTorch", "framework"),
+        "keras": ("Keras", "framework"),
+        "scikit-learn": ("Scikit-learn", "framework"),
+        "opencv": ("OpenCV", "framework"),
+        "pandas": ("Pandas", "framework"),
+        "numpy": ("NumPy", "framework"),
+        "matplotlib": ("Matplotlib", "framework"),
+        "seaborn": ("Seaborn", "framework"),
+        "scipy": ("SciPy", "framework"),
+        "xgboost": ("XGBoost", "framework"),
+        "lightgbm": ("LightGBM", "framework"),
+        "hugging face transformers": ("Hugging Face", "framework"),
+        "langchain": ("LangChain", "framework"),
+        "spacy": ("spaCy", "framework"),
+        "nltk": ("NLTK", "framework"),
+        "streamlit": ("Streamlit", "framework"),
+        "gradio": ("Gradio", "framework"),
+        "machine learning": ("Machine Learning", "framework"),
+        "deep learning": ("Deep Learning", "framework"),
+        "neural network": ("Neural Networks", "framework"),
+        "computer vision": ("Computer Vision", "framework"),
+        "nlp": ("NLP", "framework"),
+        "reinforcement learning": ("Reinforcement Learning", "framework"),
+        "model training": ("Model Training", "framework"),
+        "feature engineering": ("Feature Engineering", "framework"),
+        # Frontend
+        "react": ("React", "framework"),
+        "next.js": ("Next.js", "framework"),
+        "vue": ("Vue", "framework"),
+        "angular": ("Angular", "framework"),
+        "svelte": ("Svelte", "framework"),
+        "tailwindcss": ("TailwindCSS", "framework"),
+        "bootstrap": ("Bootstrap", "framework"),
+        "material ui": ("Material UI", "framework"),
+        "styled components": ("Styled Components", "framework"),
+        "redux": ("Redux", "framework"),
+        "gatsby": ("Gatsby", "framework"),
+        "nuxt.js": ("Nuxt.js", "framework"),
+        "framer motion": ("Framer Motion", "framework"),
+        "responsive design": ("Responsive Design", "framework"),
+        "figma": ("Figma", "tool"),
+        # Backend
+        "fastapi": ("FastAPI", "framework"),
+        "django": ("Django", "framework"),
+        "flask": ("Flask", "framework"),
+        "express.js": ("Express.js", "framework"),
+        "nestjs": ("NestJS", "framework"),
+        "spring boot": ("Spring Boot", "framework"),
+        "spring": ("Spring", "framework"),
+        "ruby on rails": ("Ruby on Rails", "framework"),
+        "laravel": ("Laravel", "framework"),
+        "asp.net": ("ASP.NET", "framework"),
+        ".net": (".NET", "framework"),
+        "rest api": ("REST API", "framework"),
+        "graphql": ("GraphQL", "framework"),
+        "grpc": ("gRPC", "framework"),
+        "microservices": ("Microservices", "framework"),
+        # Databases
+        "postgresql": ("PostgreSQL", "database"),
+        "mysql": ("MySQL", "database"),
+        "mongodb": ("MongoDB", "database"),
+        "redis": ("Redis", "database"),
+        "elasticsearch": ("Elasticsearch", "database"),
+        "sqlite": ("SQLite", "database"),
+        "cassandra": ("Cassandra", "database"),
+        "dynamodb": ("DynamoDB", "database"),
+        "firebase": ("Firebase", "database"),
+        "supabase": ("Supabase", "database"),
+        "neo4j": ("Neo4j", "database"),
+        "prisma": ("Prisma", "database"),
+        "sqlalchemy": ("SQLAlchemy", "database"),
+        # Languages
+        "python": ("Python", "language"),
+        "javascript": ("JavaScript", "language"),
+        "typescript": ("TypeScript", "language"),
+        "java": ("Java", "language"),
+        "c++": ("C++", "language"),
+        "c#": ("C#", "language"),
+        "go": ("Go", "language"),
+        "rust": ("Rust", "language"),
+        "ruby": ("Ruby", "language"),
+        "php": ("PHP", "language"),
+        "swift": ("Swift", "language"),
+        "kotlin": ("Kotlin", "language"),
+        "scala": ("Scala", "language"),
+        "dart": ("Dart", "language"),
+        "html": ("HTML", "language"),
+        "css": ("CSS", "language"),
+        "sql": ("SQL", "language"),
+        # DevOps / Tools
+        "docker": ("Docker", "tool"),
+        "kubernetes": ("Kubernetes", "tool"),
+        "terraform": ("Terraform", "tool"),
+        "ansible": ("Ansible", "tool"),
+        "ci/cd": ("CI/CD", "tool"),
+        "jenkins": ("Jenkins", "tool"),
+        "github actions": ("GitHub Actions", "tool"),
+        "gitlab ci": ("GitLab CI", "tool"),
+        "aws": ("AWS", "cloud"),
+        "azure": ("Azure", "cloud"),
+        "gcp": ("GCP", "cloud"),
+        "heroku": ("Heroku", "cloud"),
+        "vercel": ("Vercel", "cloud"),
+        "netlify": ("Netlify", "cloud"),
+        "nginx": ("Nginx", "tool"),
+        "linux": ("Linux", "tool"),
+        # Testing
+        "jest": ("Jest", "tool"),
+        "pytest": ("pytest", "tool"),
+        "cypress": ("Cypress", "tool"),
+        "selenium": ("Selenium", "tool"),
+        "playwright": ("Playwright", "tool"),
+        "unit testing": ("Unit Testing", "tool"),
+        "integration testing": ("Integration Testing", "tool"),
+        "tdd": ("TDD", "tool"),
+    }
+
+    # ── Add skills from project-detected technologies ──
+    for tech, count in sorted(
+        tech_project_count.items(), key=lambda x: -x[1]
+    ):
+        lookup = _resume_tech_lookup.get(tech)
+        if not lookup:
+            continue
+        name, category = lookup
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+
+        # Proficiency based on how many projects use this tech
+        if count >= 3:
+            prof = Proficiency.ADVANCED
+        elif count >= 2:
+            prof = Proficiency.INTERMEDIATE
+        else:
+            # Single project: use contextual analysis for proficiency
+            prof = _estimate_proficiency_from_text(tech, resume_text)
+
+        skills.append(
+            Skill(
+                name=name,
+                category=SkillCategory(category),
+                proficiency=prof,
+                source="resume",
+            )
+        )
+
+    # ── Also check the full resume text for skills not found in projects ──
+    # (e.g. skills listed in a Skills section without project context)
+    section_weights = _detect_section_context(resume_text)
     for category, skill_list in _KNOWN_SKILLS.items():
         for skill_name in skill_list:
-            # Skip very short names to avoid false positives
             if len(skill_name) <= 2:
                 continue
             if not _skill_present_in_text(skill_name, lower):
@@ -1575,22 +2176,38 @@ def compute_radar_scores(
 ) -> RadarScores:
     """Compute radar chart scores from detected skills, resume text, and GitHub data.
 
-    Uses a weighted approach:
-    - Skills matched in project/experience context score higher than
-      simple keyword presence in text.
-    - Each skill contributes to only its primary category to avoid
-      double-counting (e.g., Python only counts under backend, not data).
-    - Proficiency level affects the contribution.
-    - GitHub languages and topics contribute when resume text is absent.
+    Uses project-level technology detection:
+    - Resume projects are parsed and technologies are detected per project,
+      then each technology is mapped to its radar category.
+    - GitHub repos contribute via detected_technologies, languages, and topics.
+    - Skills from the skills list contribute with proficiency-based weighting.
+    - Each technology contributes to only its primary radar category.
     """
-    lower = resume_text.lower() if resume_text else ""
     scores: dict[str, float] = {cat: 0.0 for cat in _RADAR_SKILL_MAP}
-
-    # Track which skills have already been assigned to a category
     assigned_skills: set[str] = set()
 
-    # First pass: assign each skill to its best-matching category
-    # based on both keyword match and skill object category
+    # ── Project-level analysis for resume text ────────────
+    # This is the key improvement: detect technologies per project and
+    # use _DOMAIN_TECH_MAP (shared with GitHub pipeline) for accurate
+    # category assignment instead of flat keyword matching.
+    if resume_text:
+        projects = extract_resume_projects(resume_text)
+        # Aggregate project technologies with per-project multiplier
+        for proj in projects:
+            techs = proj.get("technologies", [])
+            for tech in techs:
+                tech_lower = tech.lower()
+                if tech_lower in assigned_skills:
+                    continue
+
+                # Map technology to radar category using _DOMAIN_TECH_MAP
+                best_cat = _map_tech_to_radar_category(tech_lower)
+                if best_cat:
+                    # Technologies found in project context get high weight
+                    scores[best_cat] += 15
+                    assigned_skills.add(tech_lower)
+
+    # ── Skills-based scoring ──────────────────────────────
     skill_category_hints = {
         "language": {"backend", "frontend"},
         "framework": {"backend", "frontend", "data"},
@@ -1611,6 +2228,12 @@ def compute_radar_scores(
                 matching_cats.append(cat)
 
         if not matching_cats:
+            # Try domain tech map as fallback
+            best_cat = _map_tech_to_radar_category(skill_lower)
+            if best_cat:
+                matching_cats = [best_cat]
+
+        if not matching_cats:
             continue
 
         # Pick the best category: prefer the one aligned with skill.category
@@ -1622,7 +2245,6 @@ def compute_radar_scores(
                     best_cat = cat
                     break
 
-        # Proficiency-weighted contribution
         prof_weight = {
             Proficiency.ADVANCED: 20,
             Proficiency.INTERMEDIATE: 14,
@@ -1631,24 +2253,7 @@ def compute_radar_scores(
         scores[best_cat] += prof_weight.get(skill.proficiency, 14)
         assigned_skills.add(skill_lower)
 
-    # Second pass: only count text mentions that appear in project/experience
-    # context AND pass word-boundary matching (prevents false inflation)
-    project_context = _has_project_context(lower)
-
-    for cat, keywords in _RADAR_SKILL_MAP.items():
-        for kw in keywords:
-            if len(kw) <= 2:
-                continue
-            if kw in assigned_skills:
-                continue
-            # Only count keywords that are genuinely present as distinct terms
-            if not _skill_present_in_text(kw, lower):
-                continue
-            # Only add score if the keyword appears in project/experience context
-            if project_context.get(kw, False):
-                scores[cat] += 5
-
-    # Third pass: GitHub languages and topics (when no resume text available)
+    # ── GitHub-specific signals ───────────────────────────
     if github:
         for lang, pct in github.top_languages.items():
             lang_lower = lang.lower()
@@ -1656,7 +2261,6 @@ def compute_radar_scores(
                 continue
             for cat, keywords in _RADAR_SKILL_MAP.items():
                 if lang_lower in keywords:
-                    # Weight by language percentage
                     if pct >= 30:
                         scores[cat] += 15
                     elif pct >= 12:
@@ -1666,7 +2270,6 @@ def compute_radar_scores(
                     assigned_skills.add(lang_lower)
                     break
 
-        # Repo topics
         for repo in github.notable_repos:
             for topic in repo.topics:
                 topic_lower = topic.lower().replace("-", " ")
@@ -1680,32 +2283,63 @@ def compute_radar_scores(
                         assigned_skills.add(topic_lower)
                         break
 
-        # Fourth pass: detected_technologies from deep repo analysis
         for repo in github.notable_repos:
             for tech in repo.detected_technologies:
                 tech_lower = tech.lower()
                 if tech_lower in assigned_skills:
                     continue
-                for cat, keywords in _RADAR_SKILL_MAP.items():
-                    if tech_lower in keywords or any(
-                        kw == tech_lower for kw in keywords
-                    ):
-                        scores[cat] += 8
-                        assigned_skills.add(tech_lower)
-                        break
+                best_cat = _map_tech_to_radar_category(tech_lower)
+                if best_cat:
+                    scores[best_cat] += 8
+                    assigned_skills.add(tech_lower)
+                else:
+                    for cat, keywords in _RADAR_SKILL_MAP.items():
+                        if tech_lower in keywords or any(
+                            kw == tech_lower for kw in keywords
+                        ):
+                            scores[cat] += 8
+                            assigned_skills.add(tech_lower)
+                            break
 
     # Normalize to 0-100 with diminishing returns
     final: dict[str, int] = {}
     for cat, raw in scores.items():
-        # Use log-based scaling: first few skills matter most
         if raw <= 0:
             final[cat] = 0
         else:
-            # Scale so ~60 raw points = 80/100, ~100 raw = 95/100
             normalized = min(100, int(40 * math.log(1 + raw / 10)))
             final[cat] = normalized
 
     return RadarScores(**final)
+
+
+def _map_tech_to_radar_category(tech_lower: str) -> str | None:
+    """Map a technology name to its primary radar chart category.
+
+    Uses _DOMAIN_TECH_MAP (shared between resume and GitHub pipelines)
+    for consistent category assignment.
+    """
+    # Direct mapping from domain to radar category
+    _domain_to_radar = {
+        "ml": "ml_ai",
+        "data": "data",
+        "web": "frontend",
+        "api": "backend",
+        "devops": "devops",
+        "mobile": "frontend",
+        "testing": "testing",
+    }
+
+    for domain, techs in _DOMAIN_TECH_MAP.items():
+        if tech_lower in techs:
+            return _domain_to_radar.get(domain)
+
+    # Also check _RADAR_SKILL_MAP directly
+    for cat, keywords in _RADAR_SKILL_MAP.items():
+        if tech_lower in keywords:
+            return cat
+
+    return None
 
 
 def _has_project_context(text: str) -> dict[str, bool]:
@@ -2421,84 +3055,86 @@ def compute_portfolio_depth(
     resume_text: str,
     github: GitHubSummary | None,
 ) -> PortfolioDepthScore:
-    """Analyze portfolio depth based on actual project detection, tech diversity, and complexity."""
+    """Analyze portfolio depth based on actual project detection, tech diversity, and complexity.
+
+    Uses structured project extraction from resume text (same intelligence
+    as GitHub repo analysis) for accurate project counting, complexity
+    scoring, and project type classification.
+    """
     lower = resume_text.lower() if resume_text else ""
 
-    # Accurate project count via structural analysis
-    project_count = _count_distinct_projects(resume_text, github)
+    # ── Structured project extraction from resume ─────────
+    resume_projects = extract_resume_projects(resume_text) if resume_text else []
 
-    # Technology diversity (0-100)
+    # Accurate project count
+    project_count = len(resume_projects)
+    if github:
+        project_count = max(project_count, min(github.public_repos, 20))
+
+    # Technology diversity (0-100) — from project-detected technologies
     unique_techs: set[str] = set()
+    for proj in resume_projects:
+        for tech in proj.get("technologies", []):
+            unique_techs.add(tech)
     for skill in skills:
         unique_techs.add(skill.name.lower())
     if github:
         for lang in github.top_languages:
             unique_techs.add(lang.lower())
-        # Add technologies detected from deep analysis
         for repo in github.notable_repos:
             for tech in repo.detected_technologies:
                 unique_techs.add(tech.lower())
     tech_div = min(100, len(unique_techs) * 7)
 
-    # Complexity score (0-100): architecture signals from resume text AND GitHub repos
-    complexity_terms = [
-        "architecture",
-        "scalable",
-        "distributed",
-        "microservice",
-        "caching",
-        "queue",
-        "concurrent",
-        "async",
-        "real-time",
-        "optimization",
-        "algorithm",
-        "encryption",
-        "authentication",
-        "authorization",
-        "rate limit",
-        "load balanc",
-        "database design",
-        "system design",
-    ]
-    complexity_hits = sum(1 for term in complexity_terms if term in lower)
+    # Complexity score (0-100) — from project-level complexity signals
+    total_complexity_hits = 0
+    for proj in resume_projects:
+        total_complexity_hits += proj.get("complexity_signals", 0)
+        # Technologies count contributes to complexity
+        tech_count = len(proj.get("technologies", []))
+        if tech_count >= 5:
+            total_complexity_hits += 2
+        elif tech_count >= 3:
+            total_complexity_hits += 1
 
     # GitHub-based complexity signals
     if github:
         for repo in github.notable_repos:
             # File count as complexity proxy
             if repo.file_count >= 50:
-                complexity_hits += 2
+                total_complexity_hits += 2
             elif repo.file_count >= 20:
-                complexity_hits += 1
+                total_complexity_hits += 1
 
             # Config file diversity → architectural maturity
             if len(repo.config_files) >= 3:
-                complexity_hits += 2
+                total_complexity_hits += 2
             elif len(repo.config_files) >= 1:
-                complexity_hits += 1
+                total_complexity_hits += 1
 
             # CI/CD, Docker, tests → production-grade complexity
             if repo.has_ci:
-                complexity_hits += 1
+                total_complexity_hits += 1
             if repo.has_docker:
-                complexity_hits += 1
+                total_complexity_hits += 1
             if repo.has_tests:
-                complexity_hits += 1
+                total_complexity_hits += 1
 
             # Multiple technologies in single repo → complex project
             if len(repo.detected_technologies) >= 5:
-                complexity_hits += 2
+                total_complexity_hits += 2
             elif len(repo.detected_technologies) >= 3:
-                complexity_hits += 1
+                total_complexity_hits += 1
 
             # Complexity from descriptions and README
             desc = (repo.description or "").lower()
             readme = repo.readme_content.lower() if repo.readme_content else ""
             combined = desc + " " + readme
-            complexity_hits += sum(1 for term in complexity_terms if term in combined)
+            total_complexity_hits += sum(
+                1 for term in _COMPLEXITY_TERMS if term in combined
+            )
 
-    complexity = min(100, complexity_hits * 8)
+    complexity = min(100, total_complexity_hits * 8)
 
     # Deployment signals (0-100)
     deploy_hits = sum(1 for sig in _DEPLOYMENT_SIGNALS if sig in lower)
@@ -2532,6 +3168,31 @@ def compute_portfolio_depth(
 
     # Project type balance (0-100): how many different types of projects
     types_found: set[str] = set()
+
+    # Detect project types from structured resume projects
+    _domain_to_ptype = {
+        "ml": "data", "data": "data", "web": "web", "api": "api",
+        "devops": "devops", "mobile": "mobile", "testing": "library",
+    }
+    for proj in resume_projects:
+        domain = proj.get("domain", "general")
+        ptype = _domain_to_ptype.get(domain)
+        if ptype:
+            types_found.add(ptype)
+        # Also check technologies for project type
+        proj_techs = set(proj.get("technologies", []))
+        if proj_techs & _DOMAIN_TECH_MAP.get("web", set()):
+            types_found.add("web")
+        if proj_techs & _DOMAIN_TECH_MAP.get("api", set()):
+            types_found.add("api")
+        if proj_techs & _DOMAIN_TECH_MAP.get("ml", set()):
+            types_found.add("data")
+        if proj_techs & _DOMAIN_TECH_MAP.get("devops", set()):
+            types_found.add("devops")
+        if proj_techs & _DOMAIN_TECH_MAP.get("mobile", set()):
+            types_found.add("mobile")
+
+    # Fallback: keyword matching on full text
     for ptype, keywords in _PROJECT_TYPES.items():
         if any(kw in lower for kw in keywords):
             types_found.add(ptype)
