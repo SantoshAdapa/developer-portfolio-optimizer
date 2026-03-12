@@ -906,6 +906,124 @@ def _skill_present_in_text(skill_name: str, text_lower: str) -> bool:
     return bool(re.search(pattern, text_lower))
 
 
+def extract_skills_from_github(github: GitHubSummary) -> list[Skill]:
+    """Extract skills from GitHub profile data: languages, topics, and repo metadata.
+
+    Uses top_languages (with percentage-based proficiency), repo topics,
+    and repo descriptions to build a skill list when no resume is available.
+    """
+    skills: list[Skill] = []
+    seen: set[str] = set()
+
+    # 1. From top_languages (percentage → proficiency)
+    for lang, pct in github.top_languages.items():
+        lang_lower = lang.lower()
+        canonical = _KNOWN_LANGUAGES.get(lang_lower)
+        if not canonical:
+            # Try title-case key (GitHub returns e.g. "Python", "JavaScript")
+            canonical = _KNOWN_LANGUAGES.get(lang_lower, lang)
+        key = canonical.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+
+        if pct >= 30:
+            prof = Proficiency.ADVANCED
+        elif pct >= 12:
+            prof = Proficiency.INTERMEDIATE
+        else:
+            prof = Proficiency.BEGINNER
+
+        skills.append(
+            Skill(
+                name=canonical,
+                category=SkillCategory.LANGUAGE,
+                proficiency=prof,
+                source="github",
+            )
+        )
+
+    # 2. From repo topics → match against _KNOWN_SKILLS
+    all_topics: set[str] = set()
+    for repo in github.notable_repos:
+        for topic in repo.topics:
+            all_topics.add(topic.lower().replace("-", " "))
+
+    _category_map = {
+        "language": SkillCategory.LANGUAGE,
+        "framework": SkillCategory.FRAMEWORK,
+        "tool": SkillCategory.TOOL,
+        "database": SkillCategory.DATABASE,
+        "cloud": SkillCategory.CLOUD,
+    }
+
+    for category, skill_list in _KNOWN_SKILLS.items():
+        for skill_name in skill_list:
+            if skill_name in seen:
+                continue
+            # Match topic exactly or as substring of topic
+            matched = any(
+                skill_name == topic or skill_name in topic for topic in all_topics
+            )
+            if not matched:
+                continue
+            display = _DISPLAY_NAME_MAP.get(skill_name, skill_name.title())
+            seen.add(skill_name)
+            skills.append(
+                Skill(
+                    name=display,
+                    category=_category_map.get(category, SkillCategory.TOOL),
+                    proficiency=Proficiency.INTERMEDIATE,
+                    source="github",
+                )
+            )
+
+    # 3. From repo languages (not captured in top_languages)
+    for repo in github.notable_repos:
+        if repo.language:
+            lang_lower = repo.language.lower()
+            canonical = _KNOWN_LANGUAGES.get(lang_lower, repo.language)
+            key = canonical.lower()
+            if key not in seen:
+                seen.add(key)
+                skills.append(
+                    Skill(
+                        name=canonical,
+                        category=SkillCategory.LANGUAGE,
+                        proficiency=Proficiency.BEGINNER,
+                        source="github",
+                    )
+                )
+
+    # 4. Detect frameworks/tools from repo descriptions and names
+    repo_text_parts: list[str] = []
+    for repo in github.notable_repos:
+        if repo.description:
+            repo_text_parts.append(repo.description.lower())
+        repo_text_parts.append(repo.name.lower().replace("-", " ").replace("_", " "))
+    repo_text = " ".join(repo_text_parts)
+
+    for category, skill_list in _KNOWN_SKILLS.items():
+        if category == "language":
+            continue  # Already handled above
+        for skill_name in skill_list:
+            if skill_name in seen or len(skill_name) <= 2:
+                continue
+            if _skill_present_in_text(skill_name, repo_text):
+                display = _DISPLAY_NAME_MAP.get(skill_name, skill_name.title())
+                seen.add(skill_name)
+                skills.append(
+                    Skill(
+                        name=display,
+                        category=_category_map.get(category, SkillCategory.TOOL),
+                        proficiency=Proficiency.INTERMEDIATE,
+                        source="github",
+                    )
+                )
+
+    return skills
+
+
 def extract_skills_from_text(resume_text: str) -> list[Skill]:
     """Extract skills from resume text using keyword matching with contextual analysis.
 
@@ -1108,8 +1226,12 @@ def _estimate_proficiency_from_text(
 # ── Radar score computation ──────────────────────────────
 
 
-def compute_radar_scores(skills: list[Skill], resume_text: str) -> RadarScores:
-    """Compute radar chart scores from detected skills and resume text.
+def compute_radar_scores(
+    skills: list[Skill],
+    resume_text: str,
+    github: GitHubSummary | None = None,
+) -> RadarScores:
+    """Compute radar chart scores from detected skills, resume text, and GitHub data.
 
     Uses a weighted approach:
     - Skills matched in project/experience context score higher than
@@ -1117,6 +1239,7 @@ def compute_radar_scores(skills: list[Skill], resume_text: str) -> RadarScores:
     - Each skill contributes to only its primary category to avoid
       double-counting (e.g., Python only counts under backend, not data).
     - Proficiency level affects the contribution.
+    - GitHub languages and topics contribute when resume text is absent.
     """
     lower = resume_text.lower() if resume_text else ""
     scores: dict[str, float] = {cat: 0.0 for cat in _RADAR_SKILL_MAP}
@@ -1182,6 +1305,38 @@ def compute_radar_scores(skills: list[Skill], resume_text: str) -> RadarScores:
             # Only add score if the keyword appears in project/experience context
             if project_context.get(kw, False):
                 scores[cat] += 5
+
+    # Third pass: GitHub languages and topics (when no resume text available)
+    if github:
+        for lang, pct in github.top_languages.items():
+            lang_lower = lang.lower()
+            if lang_lower in assigned_skills:
+                continue
+            for cat, keywords in _RADAR_SKILL_MAP.items():
+                if lang_lower in keywords:
+                    # Weight by language percentage
+                    if pct >= 30:
+                        scores[cat] += 15
+                    elif pct >= 12:
+                        scores[cat] += 10
+                    else:
+                        scores[cat] += 5
+                    assigned_skills.add(lang_lower)
+                    break
+
+        # Repo topics
+        for repo in github.notable_repos:
+            for topic in repo.topics:
+                topic_lower = topic.lower().replace("-", " ")
+                if topic_lower in assigned_skills:
+                    continue
+                for cat, keywords in _RADAR_SKILL_MAP.items():
+                    if topic_lower in keywords or any(
+                        kw in topic_lower for kw in keywords if len(kw) > 2
+                    ):
+                        scores[cat] += 5
+                        assigned_skills.add(topic_lower)
+                        break
 
     # Normalize to 0-100 with diminishing returns
     final: dict[str, int] = {}
@@ -1423,6 +1578,15 @@ def generate_ai_insights(
     # appears in project/experience context to find the actual strongest skill
     key_skill = _detect_key_strength(tech_skills, resume_text)
 
+    # If no resume text but GitHub data exists, derive key strength from GitHub
+    if not key_skill and github:
+        if github.top_languages:
+            top_lang = max(
+                github.top_languages,
+                key=lambda k: github.top_languages[k],
+            )
+            key_skill = f"Strong project experience in {top_lang}"
+
     # ── Strengths ───────────────────────────────────────
     if key_skill:
         strengths.append(key_skill)
@@ -1449,13 +1613,29 @@ def generate_ai_insights(
     elif github and github.commit_frequency in ("daily", "weekly"):
         strengths.append("Consistent coding activity showing dedication")
 
+    if github and github.public_repos >= 10:
+        strengths.append(
+            f"Active builder with {github.public_repos} public repositories"
+        )
+
+    if github and len(github.top_languages) >= 3:
+        langs = ", ".join(list(github.top_languages.keys())[:4])
+        strengths.append(f"Multi-language proficiency across {langs}")
+
     if categories.get("content_quality", 0) >= 70:
         strengths.append("Well-crafted resume with strong content quality")
+
+    if github and categories.get("documentation", 0) >= 70:
+        strengths.append("Well-documented repositories with READMEs and descriptions")
 
     # Fallback: ensure at least one strength
     if not strengths and tech_skills:
         names = ", ".join(s.name for s in tech_skills[:3])
         strengths.append(f"Technical foundation in {names}")
+    elif not strengths and github:
+        strengths.append(
+            f"Active GitHub presence with {github.public_repos} repositories"
+        )
 
     # ── Weaknesses ──────────────────────────────────────
     if len(tech_skills) < 5:
@@ -1472,11 +1652,26 @@ def generate_ai_insights(
     if not has_devops:
         weaknesses.append("Missing DevOps and infrastructure skills")
 
-    if categories.get("impact_quantification", 0) < 40:
+    if resume_text and categories.get("impact_quantification", 0) < 40:
         weaknesses.append("Resume lacks measurable impact metrics and numbers")
 
-    if categories.get("formatting_quality", 0) < 50:
+    if resume_text and categories.get("formatting_quality", 0) < 50:
         weaknesses.append("Resume formatting could be more structured and scannable")
+
+    if not resume_text and github:
+        weaknesses.append(
+            "No resume linked — adding a resume strengthens your profile analysis"
+        )
+
+    if github and github.total_stars < 5 and github.public_repos >= 3:
+        weaknesses.append(
+            "Low repository stars — improve READMEs and documentation to attract attention"
+        )
+
+    if github and github.commit_frequency in ("sporadic", "monthly"):
+        weaknesses.append(
+            "Inconsistent commit activity — regular contributions strengthen your profile"
+        )
 
     if len(advanced_skills) == 0 and len(tech_skills) > 0:
         weaknesses.append("No skills at advanced proficiency level detected")
@@ -1515,12 +1710,12 @@ def generate_ai_insights(
             "Add cloud platform experience — deploy a project on AWS, Azure, or GCP"
         )
 
-    if categories.get("impact_quantification", 0) < 40:
+    if resume_text and categories.get("impact_quantification", 0) < 40:
         improvements.append(
             "Quantify achievements: add percentages, revenue impact, and user counts"
         )
 
-    if categories.get("formatting_quality", 0) < 50:
+    if resume_text and categories.get("formatting_quality", 0) < 50:
         improvements.append(
             "Restructure resume with clear headings, bullet points, and consistent formatting"
         )
@@ -1530,9 +1725,24 @@ def generate_ai_insights(
             "Link a GitHub profile to showcase your code, contributions, and projects"
         )
 
+    if not resume_text:
+        improvements.append(
+            "Upload a resume to enable deeper skill analysis and career insights"
+        )
+
     if not has_devops:
         improvements.append(
             "Learn Docker and CI/CD — they're expected in most engineering roles"
+        )
+
+    if github and github.total_stars < 10:
+        improvements.append(
+            "Add comprehensive READMEs with screenshots, setup instructions, and demos"
+        )
+
+    if github and len(github.top_languages) < 3:
+        improvements.append(
+            "Diversify your tech stack — explore projects in different languages"
         )
 
     if len(intermediate_skills) > len(advanced_skills) * 2 and len(tech_skills) > 3:

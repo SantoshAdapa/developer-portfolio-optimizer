@@ -37,6 +37,7 @@ from app.services.scoring_service import (
     compute_skill_categories,
     compute_skill_gaps,
     extract_programming_languages,
+    extract_skills_from_github,
     extract_skills_from_text,
     generate_ai_insights,
     generate_learning_roadmap,
@@ -175,11 +176,26 @@ async def run_analysis(
         else:
             github_summary = cast(GitHubSummary, result_map["github"])
 
+    # Extract skills from GitHub data (languages, topics, repo metadata)
+    if github_summary:
+        github_skills = extract_skills_from_github(github_summary)
+        existing_names = {s.name.lower() for s in skills}
+        for gs in github_skills:
+            if gs.name.lower() not in existing_names:
+                skills.append(gs)
+                existing_names.add(gs.name.lower())
+            else:
+                # Upgrade source to "both" if skill found in both resume and GitHub
+                for s in skills:
+                    if s.name.lower() == gs.name.lower() and s.source == "resume":
+                        s.source = "both"
+                        break
+
     # ── Scoring ────────────────────────────────────────
     developer_score = compute_developer_score(resume_text, skills, github_summary)
 
     # ── Enhanced analysis data ───────────────────────
-    radar_scores = compute_radar_scores(skills, resume_text)
+    radar_scores = compute_radar_scores(skills, resume_text, github_summary)
     skill_categories = compute_skill_categories(skills)
     programming_languages = extract_programming_languages(skills, resume_text)
     score_breakdown = build_score_breakdown(
