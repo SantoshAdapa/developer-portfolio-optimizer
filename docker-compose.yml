@@ -60,6 +60,8 @@ services:
     environment:
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     volumes:
       - backend_uploads:/app/uploads
     depends_on:
