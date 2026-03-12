@@ -14,6 +14,7 @@ import {
   useAnalyzeGitHub,
   useRunAnalysis,
 } from "@/hooks/use-analysis";
+import { usePersistedState } from "@/hooks/use-persisted-state";
 import { demoProfiles } from "@/lib/demo-profiles";
 
 type Stage = "idle" | "processing" | "complete" | "error";
@@ -23,8 +24,9 @@ function AnalyzePageContent() {
 
   // ── Input state ──────────────────────────────────────────
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [resumeId, setResumeId] = useState<string | null>(null);
-  const [githubUsername, setGithubUsername] = useState<string | null>(null);
+  const [resumeId, setResumeId] = usePersistedState<string | null>("analyze_resumeId", null);
+  const [resumeMeta, setResumeMeta] = usePersistedState<{ name: string; size: number } | null>("analyze_resumeMeta", null);
+  const [githubUsername, setGithubUsername] = usePersistedState<string | null>("analyze_github", null);
   const [stage, setStage] = useState<Stage>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [score, setScore] = useState<number | undefined>(undefined);
@@ -68,6 +70,7 @@ function AnalyzePageContent() {
   const handleFileSelected = useCallback(
     (file: File) => {
       setResumeFile(file);
+      setResumeMeta({ name: file.name, size: file.size });
       setErrorMsg(null);
       uploadResume.mutate(file, {
         onSuccess: (data: any) => {
@@ -78,14 +81,15 @@ function AnalyzePageContent() {
         },
       });
     },
-    [uploadResume]
+    [uploadResume, setResumeMeta, setResumeId]
   );
 
   const handleRemoveResume = useCallback(() => {
     setResumeFile(null);
     setResumeId(null);
+    setResumeMeta(null);
     uploadResume.reset();
-  }, [uploadResume]);
+  }, [uploadResume, setResumeId, setResumeMeta]);
 
   const handleGitHubSubmit = useCallback(
     (username: string) => {
@@ -181,6 +185,7 @@ function AnalyzePageContent() {
                 onRemove={handleRemoveResume}
                 isUploading={uploadResume.isPending}
                 isSuccess={!!resumeId}
+                restoredFile={!resumeFile && resumeMeta ? resumeMeta : null}
                 error={
                   uploadResume.isError
                     ? uploadResume.error?.message || "Upload failed"

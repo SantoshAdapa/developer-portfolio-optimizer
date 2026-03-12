@@ -19,6 +19,7 @@ import {
   getAnalysisResults,
   compareProfiles,
 } from "@/services/api";
+import { usePersistedState } from "@/hooks/use-persisted-state";
 import type {
   AnalysisResponse,
   CompareResponse,
@@ -35,6 +36,36 @@ export default function ComparePage() {
   const [stateB, setStateB] = useState<DeveloperInputState>({
     ...INITIAL_STATE,
   });
+
+  // Persisted resume metadata for session restoration
+  const [resumeMetaA, setResumeMetaA] = usePersistedState<{ name: string; size: number } | null>("compare_resumeMetaA", null);
+  const [resumeMetaB, setResumeMetaB] = usePersistedState<{ name: string; size: number } | null>("compare_resumeMetaB", null);
+  const [persistedA, setPersistedA] = usePersistedState<{ resumeId: string | null; githubUsername: string; isUploadSuccess: boolean; isGithubSuccess: boolean } | null>("compare_persistedA", null);
+  const [persistedB, setPersistedB] = usePersistedState<{ resumeId: string | null; githubUsername: string; isUploadSuccess: boolean; isGithubSuccess: boolean } | null>("compare_persistedB", null);
+
+  // Restore persisted state on first render
+  const hasRestoredRef = useRef(false);
+  if (!hasRestoredRef.current) {
+    hasRestoredRef.current = true;
+    if (persistedA) {
+      setStateA((prev) => ({
+        ...prev,
+        resumeId: persistedA.resumeId,
+        githubUsername: persistedA.githubUsername,
+        isUploadSuccess: persistedA.isUploadSuccess,
+        isGithubSuccess: persistedA.isGithubSuccess,
+      }));
+    }
+    if (persistedB) {
+      setStateB((prev) => ({
+        ...prev,
+        resumeId: persistedB.resumeId,
+        githubUsername: persistedB.githubUsername,
+        isUploadSuccess: persistedB.isUploadSuccess,
+        isGithubSuccess: persistedB.isGithubSuccess,
+      }));
+    }
+  }
 
   const [analysisDataA, setAnalysisDataA] = useState<AnalysisResponse | null>(
     null
@@ -82,8 +113,9 @@ export default function ComparePage() {
 
   // ── File handlers ──────────────────────────────────────
   const handleFile = useCallback(
-    async (key: DevKey, file: File) => {
-      update(key, {
+    async (key: DevKey, file: File) => {      const meta = { name: file.name, size: file.size };
+      if (key === "a") setResumeMetaA(meta);
+      else setResumeMetaB(meta);      update(key, {
         resumeFile: file,
         isUploadingResume: true,
         uploadError: null,
@@ -96,6 +128,14 @@ export default function ComparePage() {
           isUploadingResume: false,
           isUploadSuccess: true,
         });
+        // Persist to session
+        const setPersist = key === "a" ? setPersistedA : setPersistedB;
+        setPersist((prev) => ({
+          resumeId: res.analysis_id,
+          githubUsername: prev?.githubUsername ?? "",
+          isUploadSuccess: true,
+          isGithubSuccess: prev?.isGithubSuccess ?? false,
+        }));
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Upload failed";
@@ -105,7 +145,7 @@ export default function ComparePage() {
         });
       }
     },
-    [update]
+    [update, setResumeMetaA, setResumeMetaB, setPersistedA, setPersistedB]
   );
 
   // ── GitHub handlers ────────────────────────────────────
@@ -120,6 +160,13 @@ export default function ComparePage() {
       try {
         await analyzeGitHub(username);
         update(key, { isAnalyzingGithub: false, isGithubSuccess: true });
+        const setPersist = key === "a" ? setPersistedA : setPersistedB;
+        setPersist((prev) => ({
+          resumeId: prev?.resumeId ?? null,
+          githubUsername: username,
+          isUploadSuccess: prev?.isUploadSuccess ?? false,
+          isGithubSuccess: true,
+        }));
       } catch (err: unknown) {
         let message = "GitHub analysis failed";
         if (err instanceof Error) {
@@ -134,7 +181,7 @@ export default function ComparePage() {
         update(key, { isAnalyzingGithub: false, githubError: message });
       }
     },
-    [update]
+    [update, setPersistedA, setPersistedB]
   );
 
   // ── Analyze handler ────────────────────────────────────
@@ -261,6 +308,7 @@ export default function ComparePage() {
           onRemoveFile={() => handleRemoveFile("a")}
           onGitHubSubmit={(u) => handleGitHub("a", u)}
           onAnalyze={() => handleAnalyze("a")}
+          restoredFile={!stateA.resumeFile && resumeMetaA ? resumeMetaA : null}
         />
         <ComparisonPanel
           label="Developer B"
@@ -270,6 +318,7 @@ export default function ComparePage() {
           onRemoveFile={() => handleRemoveFile("b")}
           onGitHubSubmit={(u) => handleGitHub("b", u)}
           onAnalyze={() => handleAnalyze("b")}
+          restoredFile={!stateB.resumeFile && resumeMetaB ? resumeMetaB : null}
         />
       </div>
 

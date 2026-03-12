@@ -208,8 +208,7 @@ _RADAR_SKILL_MAP = {
         "web design",
         "ui/ux",
         "figma",
-        "javascript",
-        "typescript",
+        # Note: javascript/typescript removed — routed by project domain context
     ],
     "backend": [
         "fastapi",
@@ -240,14 +239,7 @@ _RADAR_SKILL_MAP = {
         "koa",
         "hapi",
         "fastify",
-        "java",
-        "python",
-        "go",
-        "golang",
-        "rust",
-        "ruby",
-        "php",
-        "c#",
+        # Note: languages (python, java, go, etc.) removed — routed by project domain
     ],
     "data": [
         "sql",
@@ -267,6 +259,7 @@ _RADAR_SKILL_MAP = {
         "pandas",
         "numpy",
         "data analysis",
+        "data visualization",
         "etl",
         "data pipeline",
         "apache spark",
@@ -277,6 +270,14 @@ _RADAR_SKILL_MAP = {
         "mariadb",
         "data engineering",
         "data warehouse",
+        "tableau",
+        "power bi",
+        "matplotlib",
+        "seaborn",
+        "plotly",
+        "excel",
+        "statistics",
+        "scipy",
     ],
     "ml_ai": [
         "tensorflow",
@@ -315,24 +316,14 @@ _RADAR_SKILL_MAP = {
         "gitlab ci",
         "terraform",
         "ansible",
-        "aws",
-        "amazon web services",
-        "azure",
-        "gcp",
-        "google cloud",
-        "heroku",
-        "vercel",
-        "netlify",
-        "linux",
-        "nginx",
-        "apache",
         "prometheus",
         "grafana",
         "helm",
         "cloudformation",
         "pulumi",
-        "digitalocean",
-        "cloudflare",
+        # Note: aws/azure/gcp, heroku, vercel, netlify, linux, nginx removed
+        # — these are too generic and inflate devops for non-devops developers.
+        # They're still handled via _DOMAIN_TECH_MAP for project-level detection.
     ],
     "testing": [
         "jest",
@@ -480,6 +471,12 @@ _KNOWN_SKILLS: dict[str, list[str]] = {
         "github actions",
         "ci/cd",
         "circleci",
+        "tableau",
+        "power bi",
+        "excel",
+        "matplotlib",
+        "seaborn",
+        "plotly",
     ],
     "database": [
         "postgresql",
@@ -1753,6 +1750,18 @@ _DOMAIN_TECH_MAP: dict[str, set[str]] = {
         "neo4j",
         "prisma",
         "sqlalchemy",
+        "tableau",
+        "power bi",
+        "plotly",
+        "data analysis",
+        "data visualization",
+        "excel",
+        "statistics",
+        "data warehouse",
+        "etl",
+        "data pipeline",
+        "apache spark",
+        "kafka",
     },
     "web": {
         "react",
@@ -1799,14 +1808,11 @@ _DOMAIN_TECH_MAP: dict[str, set[str]] = {
         "jenkins",
         "github actions",
         "gitlab ci",
-        "aws",
-        "azure",
-        "gcp",
-        "heroku",
-        "vercel",
-        "netlify",
-        "nginx",
-        "linux",
+        "prometheus",
+        "grafana",
+        "helm",
+        "cloudformation",
+        "pulumi",
     },
     "mobile": {
         "react native",
@@ -2315,38 +2321,96 @@ def compute_radar_scores(
 ) -> RadarScores:
     """Compute radar chart scores from detected skills, resume text, and GitHub data.
 
-    Uses project-level technology detection:
-    - Resume projects are parsed and technologies are detected per project,
-      then each technology is mapped to its radar category.
-    - GitHub repos contribute via detected_technologies, languages, and topics.
-    - Skills from the skills list contribute with proficiency-based weighting.
-    - Each technology contributes to only its primary radar category.
+    Uses project-level technology detection with domain-weighted scoring:
+    - Resume projects are parsed, technologies detected, and each project's
+      domain is classified (ml, web, api, data, devops, etc.).
+    - The domain distribution drives category weighting so the radar chart
+      reflects the developer's actual focus areas.
+    - Generic/ambiguous skills (python, git, linux) are assigned based on
+      project domain context rather than fixed categories.
+    - GitHub repos contribute similarly via detected_technologies and domains.
     """
     scores: dict[str, float] = {cat: 0.0 for cat in _RADAR_SKILL_MAP}
     assigned_skills: set[str] = set()
 
-    # ── Project-level analysis for resume text ────────────
-    # This is the key improvement: detect technologies per project and
-    # use _DOMAIN_TECH_MAP (shared with GitHub pipeline) for accurate
-    # category assignment instead of flat keyword matching.
+    # ── Step 1: Project domain distribution ──────────────
+    # Classify all projects by domain and use distribution to weight scores.
+    domain_counts: dict[str, int] = {}
+
     if resume_text:
         projects = extract_resume_projects(resume_text)
-        # Aggregate project technologies with per-project multiplier
         for proj in projects:
+            domain = proj.get("domain", "general")
+            if domain != "general":
+                domain_counts[domain] = domain_counts.get(domain, 0) + 1
+
             techs = proj.get("technologies", [])
             for tech in techs:
                 tech_lower = tech.lower()
                 if tech_lower in assigned_skills:
                     continue
-
-                # Map technology to radar category using _DOMAIN_TECH_MAP
                 best_cat = _map_tech_to_radar_category(tech_lower)
                 if best_cat:
-                    # Technologies found in project context get high weight
                     scores[best_cat] += 15
                     assigned_skills.add(tech_lower)
 
-    # ── Skills-based scoring ──────────────────────────────
+    if github:
+        for repo in github.notable_repos:
+            desc = (repo.description or "").lower()
+            name = repo.name.lower().replace("-", " ").replace("_", " ")
+            readme = repo.readme_content.lower()[:500] if repo.readme_content else ""
+            combined = desc + " " + name + " " + readme
+            repo_techs = [t.lower() for t in repo.detected_technologies]
+            repo_domain = _classify_project_domain(repo_techs, combined)
+            if repo_domain != "general":
+                domain_counts[repo_domain] = domain_counts.get(repo_domain, 0) + 1
+
+    # Determine primary domain(s)
+    total_projects = sum(domain_counts.values()) if domain_counts else 1
+    primary_domain = max(domain_counts, key=lambda k: domain_counts[k]) if domain_counts else None
+
+    # Domain-to-radar boost: amplify categories that match the dev's actual focus
+    _domain_to_radar_boost = {
+        "ml": "ml_ai",
+        "data": "data",
+        "web": "frontend",
+        "api": "backend",
+        "devops": "devops",
+        "mobile": "frontend",
+        "testing": "testing",
+    }
+
+    # Apply domain-based boost
+    for domain, count in domain_counts.items():
+        radar_cat = _domain_to_radar_boost.get(domain)
+        if radar_cat:
+            # Boost proportional to how dominant this domain is
+            proportion = count / total_projects
+            scores[radar_cat] += proportion * 25
+
+    # ── Step 2: Skills-based scoring (context-aware) ─────
+    # Ambiguous skills are routed based on project domain context
+    _ambiguous_skills = {
+        "python", "java", "javascript", "typescript", "c++", "c#",
+        "go", "golang", "rust", "ruby", "php", "sql",
+    }
+
+    # Default radar category for ambiguous languages when no domain context
+    _language_defaults: dict[str, str] = {
+        "python": "backend",
+        "java": "backend",
+        "javascript": "frontend",
+        "typescript": "frontend",
+        "c++": "backend",
+        "c#": "backend",
+        "go": "backend",
+        "golang": "backend",
+        "rust": "backend",
+        "ruby": "backend",
+        "php": "backend",
+        "sql": "data",
+    }
+
     skill_category_hints = {
         "language": {"backend", "frontend"},
         "framework": {"backend", "frontend", "data"},
@@ -2367,15 +2431,31 @@ def compute_radar_scores(
                 matching_cats.append(cat)
 
         if not matching_cats:
-            # Try domain tech map as fallback
             best_cat = _map_tech_to_radar_category(skill_lower)
             if best_cat:
                 matching_cats = [best_cat]
 
+        # For ambiguous languages with no radar match, route by domain or default
+        if not matching_cats and skill_lower in _ambiguous_skills:
+            if primary_domain:
+                domain_cat = _domain_to_radar_boost.get(primary_domain)
+                if domain_cat:
+                    matching_cats = [domain_cat]
+            if not matching_cats:
+                default_cat = _language_defaults.get(skill_lower)
+                if default_cat:
+                    matching_cats = [default_cat]
+
         if not matching_cats:
             continue
 
-        # Pick the best category: prefer the one aligned with skill.category
+        # For ambiguous skills (languages), route based on primary project domain
+        if skill_lower in _ambiguous_skills and len(matching_cats) > 1 and primary_domain:
+            domain_cat = _domain_to_radar_boost.get(primary_domain)
+            if domain_cat and domain_cat in matching_cats:
+                matching_cats = [domain_cat]
+
+        # Pick the best category
         best_cat = matching_cats[0]
         if len(matching_cats) > 1:
             hints = skill_category_hints.get(skill.category, set())
@@ -2392,22 +2472,46 @@ def compute_radar_scores(
         scores[best_cat] += prof_weight.get(skill.proficiency, 14)
         assigned_skills.add(skill_lower)
 
-    # ── GitHub-specific signals ───────────────────────────
+    # ── Step 3: GitHub-specific signals ──────────────────
     if github:
         for lang, pct in github.top_languages.items():
             lang_lower = lang.lower()
             if lang_lower in assigned_skills:
                 continue
+
+            # For ambiguous languages, route based on project domain
+            matching_cats = []
             for cat, keywords in _RADAR_SKILL_MAP.items():
                 if lang_lower in keywords:
-                    if pct >= 30:
-                        scores[cat] += 15
-                    elif pct >= 12:
-                        scores[cat] += 10
-                    else:
-                        scores[cat] += 5
-                    assigned_skills.add(lang_lower)
-                    break
+                    matching_cats.append(cat)
+
+            # Ambiguous language fallback (same as skills)
+            if not matching_cats and lang_lower in _ambiguous_skills:
+                if primary_domain:
+                    domain_cat = _domain_to_radar_boost.get(primary_domain)
+                    if domain_cat:
+                        matching_cats = [domain_cat]
+                if not matching_cats:
+                    default_cat = _language_defaults.get(lang_lower)
+                    if default_cat:
+                        matching_cats = [default_cat]
+
+            if not matching_cats:
+                continue
+
+            if lang_lower in _ambiguous_skills and len(matching_cats) > 1 and primary_domain:
+                domain_cat = _domain_to_radar_boost.get(primary_domain)
+                if domain_cat and domain_cat in matching_cats:
+                    matching_cats = [domain_cat]
+
+            best_cat = matching_cats[0]
+            if pct >= 30:
+                scores[best_cat] += 15
+            elif pct >= 12:
+                scores[best_cat] += 10
+            else:
+                scores[best_cat] += 5
+            assigned_skills.add(lang_lower)
 
         for repo in github.notable_repos:
             for topic in repo.topics:
@@ -2439,6 +2543,22 @@ def compute_radar_scores(
                             scores[cat] += 8
                             assigned_skills.add(tech_lower)
                             break
+
+    # ── Step 4: Penalize categories with no project evidence ──
+    # If the developer has zero projects in a domain but scored from
+    # incidental mentions, reduce the score substantially.
+    if domain_counts and total_projects >= 2:
+        for cat_key, domain_key in [
+            ("devops", "devops"),
+            ("ml_ai", "ml"),
+            ("frontend", "web"),
+            ("backend", "api"),
+            ("data", "data"),
+            ("testing", "testing"),
+        ]:
+            if domain_key not in domain_counts and scores[cat_key] > 0:
+                # Reduce scores from incidental mentions (keep 30%)
+                scores[cat_key] *= 0.3
 
     # Normalize to 0-100 with diminishing returns
     final: dict[str, int] = {}
@@ -3516,6 +3636,18 @@ _ROLE_TEMPLATES: dict[str, dict[str, str]] = {
         "data pipeline": "intermediate",
         "etl": "intermediate",
     },
+    "data_analyst": {
+        "python": "intermediate",
+        "sql": "advanced",
+        "pandas": "intermediate",
+        "data visualization": "intermediate",
+        "statistics": "intermediate",
+        "excel": "intermediate",
+        "tableau": "intermediate",
+        "data analysis": "intermediate",
+        "matplotlib": "intermediate",
+        "git": "intermediate",
+    },
 }
 
 _ROLE_DISPLAY_NAMES: dict[str, str] = {
@@ -3525,6 +3657,7 @@ _ROLE_DISPLAY_NAMES: dict[str, str] = {
     "ml_engineer": "ML Engineer",
     "devops_engineer": "DevOps Engineer",
     "data_engineer": "Data Engineer",
+    "data_analyst": "Data Analyst",
 }
 
 _PROF_ORDER = {"advanced": 3, "intermediate": 2, "beginner": 1, "": 0}
@@ -3615,10 +3748,11 @@ def compute_skill_gaps(
 
 
 def _auto_detect_role(skills: list[Skill], resume_text: str) -> str:
-    """Auto-detect the best-fit target role based on current skills."""
+    """Auto-detect the best-fit target role based on current skills and project domains."""
     lower = resume_text.lower() if resume_text else ""
     skill_names = {s.name.lower() for s in skills}
 
+    # Score each role by skill template match
     scores: dict[str, float] = {}
     for role, template in _ROLE_TEMPLATES.items():
         role_score = 0.0
@@ -3628,6 +3762,31 @@ def _auto_detect_role(skills: list[Skill], resume_text: str) -> str:
             ):
                 role_score += 1
         scores[role] = role_score / len(template)
+
+    # Boost scores based on project domain distribution
+    if resume_text:
+        projects = extract_resume_projects(resume_text)
+        domain_counts: dict[str, int] = {}
+        for proj in projects:
+            domain = proj.get("domain", "general")
+            if domain != "general":
+                domain_counts[domain] = domain_counts.get(domain, 0) + 1
+
+        total = sum(domain_counts.values()) if domain_counts else 1
+        _domain_to_role = {
+            "ml": "ml_engineer",
+            "data": "data_analyst",
+            "web": "frontend_engineer",
+            "api": "backend_engineer",
+            "devops": "devops_engineer",
+            "mobile": "frontend_engineer",
+        }
+        for domain, count in domain_counts.items():
+            role_key = _domain_to_role.get(domain)
+            if role_key and role_key in scores:
+                # Boost by domain proportion (up to 0.3 additional score)
+                proportion = count / total
+                scores[role_key] += proportion * 0.3
 
     return max(scores, key=lambda k: scores[k]) if scores else "fullstack_engineer"
 
@@ -3685,6 +3844,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
             name="Automate the Boring Stuff", url="https://automatetheboringstuff.com/"
         ),
         LearningResource(name="Real Python", url="https://realpython.com/"),
+        LearningResource(
+            name="Python Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=rfscVS0vtbw",
+        ),
     ],
     "javascript": [
         LearningResource(
@@ -3696,6 +3859,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
             name="freeCodeCamp",
             url="https://www.freecodecamp.org/learn/javascript-algorithms-and-data-structures/",
         ),
+        LearningResource(
+            name="JavaScript Full Course - Bro Code (YouTube)",
+            url="https://www.youtube.com/watch?v=lfmg-EJ8gm4",
+        ),
     ],
     "typescript": [
         LearningResource(
@@ -3705,6 +3872,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
         LearningResource(
             name="TypeScript Deep Dive", url="https://basarat.gitbook.io/typescript/"
         ),
+        LearningResource(
+            name="TypeScript Full Course - Dave Gray (YouTube)",
+            url="https://www.youtube.com/watch?v=gieEQFIfgYc",
+        ),
     ],
     "react": [
         LearningResource(name="React.dev", url="https://react.dev/learn"),
@@ -3712,6 +3883,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
             name="React Tutorial", url="https://react.dev/learn/tutorial-tic-tac-toe"
         ),
         LearningResource(name="Next.js Learn", url="https://nextjs.org/learn"),
+        LearningResource(
+            name="React Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=bMknfKXIFA8",
+        ),
     ],
     "docker": [
         LearningResource(
@@ -3722,6 +3897,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
         ),
         LearningResource(
             name="Play with Docker", url="https://labs.play-with-docker.com/"
+        ),
+        LearningResource(
+            name="Docker Tutorial - TechWorld with Nana (YouTube)",
+            url="https://www.youtube.com/watch?v=3c-iBn73dDE",
         ),
     ],
     "kubernetes": [
@@ -3736,6 +3915,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
             name="Kubernetes the Hard Way",
             url="https://github.com/kelseyhightower/kubernetes-the-hard-way",
         ),
+        LearningResource(
+            name="Kubernetes Course - TechWorld with Nana (YouTube)",
+            url="https://www.youtube.com/watch?v=X48VuDVv0do",
+        ),
     ],
     "aws": [
         LearningResource(name="AWS Skill Builder", url="https://skillbuilder.aws/"),
@@ -3743,6 +3926,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
         LearningResource(
             name="AWS Well-Architected",
             url="https://aws.amazon.com/architecture/well-architected/",
+        ),
+        LearningResource(
+            name="AWS Certified Cloud Practitioner - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=SOTamWNgDKc",
         ),
     ],
     "sql": [
@@ -3753,6 +3940,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
         LearningResource(
             name="PostgreSQL Tutorial", url="https://www.postgresqltutorial.com/"
         ),
+        LearningResource(
+            name="SQL Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=HXV3zeQKqGY",
+        ),
     ],
     "git": [
         LearningResource(name="Pro Git book", url="https://git-scm.com/book/en/v2"),
@@ -3760,6 +3951,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
             name="Learn Git Branching", url="https://learngitbranching.js.org/"
         ),
         LearningResource(name="GitHub Skills", url="https://skills.github.com/"),
+        LearningResource(
+            name="Git & GitHub Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=RGOj5yH7evk",
+        ),
     ],
     "terraform": [
         LearningResource(
@@ -3768,6 +3963,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
         ),
         LearningResource(
             name="HashiCorp tutorials", url="https://developer.hashicorp.com/tutorials"
+        ),
+        LearningResource(
+            name="Terraform Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=SLB_c_ayRMo",
         ),
     ],
     "ci/cd": [
@@ -3778,6 +3977,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
             name="CI/CD with GitHub Actions",
             url="https://docs.github.com/en/actions/use-cases-and-examples/building-and-testing",
         ),
+        LearningResource(
+            name="GitHub Actions Tutorial - TechWorld with Nana (YouTube)",
+            url="https://www.youtube.com/watch?v=R8_veQiYBjI",
+        ),
     ],
     "testing": [
         LearningResource(
@@ -3785,6 +3988,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
         ),
         LearningResource(
             name="Testing Best Practices", url="https://testingjavascript.com/"
+        ),
+        LearningResource(
+            name="Python Testing with pytest - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=cHYq1MRoyI0",
         ),
     ],
     "tensorflow": [
@@ -3795,17 +4002,29 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
             name="Coursera ML Specialization",
             url="https://www.coursera.org/specializations/machine-learning-introduction",
         ),
+        LearningResource(
+            name="TensorFlow Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=tPYj3fFJGjk",
+        ),
     ],
     "pytorch": [
         LearningResource(
             name="PyTorch tutorials", url="https://pytorch.org/tutorials/"
         ),
         LearningResource(name="Fast.ai course", url="https://course.fast.ai/"),
+        LearningResource(
+            name="PyTorch Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=V_xro1bcAuA",
+        ),
     ],
     "linux": [
         LearningResource(name="Linux Journey", url="https://linuxjourney.com/"),
         LearningResource(
             name="OverTheWire Bandit", url="https://overthewire.org/wargames/bandit/"
+        ),
+        LearningResource(
+            name="Linux Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=sWbUDq4S6Y8",
         ),
     ],
     "scikit-learn": [
@@ -3817,6 +4036,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
             name="Scikit-Learn User Guide",
             url="https://scikit-learn.org/stable/user_guide.html",
         ),
+        LearningResource(
+            name="Scikit-Learn Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=pqNCD_5r0IU",
+        ),
     ],
     "pandas": [
         LearningResource(
@@ -3826,6 +4049,10 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
         LearningResource(
             name="Kaggle Pandas course", url="https://www.kaggle.com/learn/pandas"
         ),
+        LearningResource(
+            name="Pandas Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=vmEHCJofslg",
+        ),
     ],
     "statistics": [
         LearningResource(
@@ -3834,6 +4061,78 @@ _LEARNING_RESOURCES: dict[str, list[LearningResource]] = {
         ),
         LearningResource(
             name="Think Stats", url="https://greenteapress.com/thinkstats2/html/"
+        ),
+        LearningResource(
+            name="Statistics Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=xxpc-HPKN28",
+        ),
+    ],
+    "machine learning": [
+        LearningResource(
+            name="Coursera ML Specialization",
+            url="https://www.coursera.org/specializations/machine-learning-introduction",
+        ),
+        LearningResource(
+            name="Fast.ai Practical Deep Learning",
+            url="https://course.fast.ai/",
+        ),
+        LearningResource(
+            name="Machine Learning Full Course - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=NWONeJKn6kc",
+        ),
+    ],
+    "deep learning": [
+        LearningResource(
+            name="Deep Learning Specialization",
+            url="https://www.coursera.org/specializations/deep-learning",
+        ),
+        LearningResource(
+            name="3Blue1Brown Neural Networks (YouTube)",
+            url="https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi",
+        ),
+    ],
+    "data analysis": [
+        LearningResource(
+            name="Kaggle Learn",
+            url="https://www.kaggle.com/learn",
+        ),
+        LearningResource(
+            name="Google Data Analytics Certificate",
+            url="https://www.coursera.org/professional-certificates/google-data-analytics",
+        ),
+        LearningResource(
+            name="Data Analysis with Python - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=r-uOLxNrNk8",
+        ),
+    ],
+    "data visualization": [
+        LearningResource(
+            name="Matplotlib documentation",
+            url="https://matplotlib.org/stable/tutorials/index.html",
+        ),
+        LearningResource(
+            name="Data Visualization with Python - freeCodeCamp (YouTube)",
+            url="https://www.youtube.com/watch?v=GGL6U0k8WYA",
+        ),
+    ],
+    "power bi": [
+        LearningResource(
+            name="Microsoft Power BI Learning",
+            url="https://learn.microsoft.com/en-us/power-bi/",
+        ),
+        LearningResource(
+            name="Power BI Full Course - Edureka (YouTube)",
+            url="https://www.youtube.com/watch?v=3u7MQz1EyPY",
+        ),
+    ],
+    "tableau": [
+        LearningResource(
+            name="Tableau eLearning",
+            url="https://www.tableau.com/learn/training",
+        ),
+        LearningResource(
+            name="Tableau Full Course - Simplilearn (YouTube)",
+            url="https://www.youtube.com/watch?v=aHaOIvR00So",
         ),
     ],
 }
@@ -3851,7 +4150,7 @@ def _get_resources(skill_name: str) -> list[LearningResource]:
     skill_lower = skill_name.lower()
     if skill_lower in _LEARNING_RESOURCES:
         return _LEARNING_RESOURCES[skill_lower]
-    # Fallback: link to a documentation search
+    # Fallback: link to a documentation search + YouTube search
     safe_name = skill_name.replace(" ", "+")
     return [
         LearningResource(
@@ -3861,6 +4160,10 @@ def _get_resources(skill_name: str) -> list[LearningResource]:
         LearningResource(
             name=f"Learn {skill_name}",
             url=f"https://www.freecodecamp.org/news/search/?query={safe_name}",
+        ),
+        LearningResource(
+            name=f"{skill_name} Full Course (YouTube)",
+            url=f"https://www.youtube.com/results?search_query={safe_name}+full+course",
         ),
     ]
 
@@ -3886,7 +4189,7 @@ def generate_learning_roadmap(
                 skill=sm.skill,
                 current_level=current,
                 target_level=target,
-                resources=resources[:3],
+                resources=resources[:4],
                 estimated_weeks=weeks,
             )
         )
@@ -3905,7 +4208,7 @@ def generate_learning_roadmap(
                 skill=sm.skill,
                 current_level="none",
                 target_level=target,
-                resources=resources[:3],
+                resources=resources[:4],
                 estimated_weeks=weeks,
             )
         )
@@ -4189,6 +4492,28 @@ _CAREER_PATHS: dict[str, dict[str, list[str] | str]] = {
         ],
         "description": "Design and manage cloud infrastructure at enterprise scale",
     },
+    "Data Analyst": {
+        "matching": [
+            "python",
+            "sql",
+            "pandas",
+            "data analysis",
+            "data visualization",
+            "tableau",
+            "power bi",
+            "excel",
+            "statistics",
+            "matplotlib",
+            "seaborn",
+        ],
+        "to_develop": [
+            "machine learning",
+            "data storytelling",
+            "advanced statistics",
+            "business intelligence",
+        ],
+        "description": "Analyze data to derive insights and support business decisions",
+    },
 }
 
 
@@ -4226,6 +4551,8 @@ def compute_career_direction(
             ):
                 fit = min(100, fit + 10)
             elif role in ("Data Engineer",) and radar_scores.data >= 50:
+                fit = min(100, fit + 10)
+            elif role in ("Data Analyst",) and radar_scores.data >= 50:
                 fit = min(100, fit + 10)
 
         skills_to_develop: list[str] = []

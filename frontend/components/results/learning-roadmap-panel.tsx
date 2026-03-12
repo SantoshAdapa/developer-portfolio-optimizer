@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, Clock, ExternalLink } from "lucide-react";
+import { BookOpen, Clock, ExternalLink, Youtube } from "lucide-react";
 import type { LearningRoadmapResult } from "@/types";
 
 interface LearningRoadmapPanelProps {
@@ -70,18 +70,31 @@ export function LearningRoadmapPanel({ roadmap }: LearningRoadmapPanelProps) {
               </p>
               {step.resources.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {step.resources.map((res, i) => (
-                    <a
-                      key={i}
-                      href={typeof res === "string" ? "#" : res.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-white/[0.1] hover:text-white transition-colors"
-                    >
-                      <ExternalLink className="h-2.5 w-2.5" />
-                      {typeof res === "string" ? res : res.name}
-                    </a>
-                  ))}
+                  {step.resources.map((res, i) => {
+                    const resUrl = typeof res === "string" ? "#" : res.url;
+                    const resName = typeof res === "string" ? res : res.name;
+                    const isYouTube = resUrl.includes("youtube.com") || resUrl.includes("youtu.be");
+                    return (
+                      <a
+                        key={i}
+                        href={resUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] transition-colors ${
+                          isYouTube
+                            ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                            : "bg-white/[0.05] text-muted-foreground hover:bg-white/[0.1] hover:text-white"
+                        }`}
+                      >
+                        {isYouTube ? (
+                          <Youtube className="h-2.5 w-2.5" />
+                        ) : (
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        )}
+                        {resName}
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>

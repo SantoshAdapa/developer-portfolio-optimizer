@@ -52,6 +52,7 @@ interface ComparisonPanelProps {
   onGitHubSubmit: (username: string) => void;
   onAnalyze: () => void;
   disabled?: boolean;
+  restoredFile?: { name: string; size: number } | null;
 }
 
 const fadeUp = {
@@ -108,6 +109,7 @@ export function ComparisonPanel({
   onGitHubSubmit,
   onAnalyze,
   disabled = false,
+  restoredFile = null,
 }: ComparisonPanelProps) {
   const colors = colorMap[color];
   const canAnalyze =
@@ -143,6 +145,7 @@ export function ComparisonPanel({
           isUploading={state.isUploadingResume}
           isSuccess={state.isUploadSuccess}
           error={state.uploadError}
+          restoredFile={restoredFile}
         />
       </div>
 
