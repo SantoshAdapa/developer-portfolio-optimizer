@@ -99,8 +99,16 @@ export default function ComparePage() {
         await analyzeGitHub(username);
         update(key, { isAnalyzingGithub: false, isGithubSuccess: true });
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "GitHub analysis failed";
+        let message = "GitHub analysis failed";
+        if (err instanceof Error) {
+          message = err.message;
+        }
+        // Surface rate-limit errors clearly
+        if (message.toLowerCase().includes("429") || message.toLowerCase().includes("too many")) {
+          message = "Too many requests. Please wait a moment and try again.";
+        } else if (message.toLowerCase().includes("failed to fetch github")) {
+          message = "Failed to fetch GitHub data. Check the username and try again.";
+        }
         update(key, { isAnalyzingGithub: false, githubError: message });
       }
     },
@@ -147,6 +155,7 @@ export default function ComparePage() {
   // ── Compare handler ────────────────────────────────────
   const handleCompare = useCallback(async () => {
     if (!stateA.analysisId || !stateB.analysisId) return;
+    if (isComparing) return; // Prevent duplicate calls
     setIsComparing(true);
     setCompareError(null);
     setFlowStatus("comparing");
@@ -158,14 +167,19 @@ export default function ComparePage() {
       setComparison(res);
       setFlowStatus("complete");
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Comparison failed";
+      let message = "Comparison failed";
+      if (err instanceof Error) {
+        message = err.message;
+      }
+      if (message.toLowerCase().includes("too many") || message.toLowerCase().includes("429")) {
+        message = "Too many requests. Please wait a moment and try again.";
+      }
       setCompareError(message);
       setFlowStatus("error");
     } finally {
       setIsComparing(false);
     }
-  }, [stateA.analysisId, stateB.analysisId]);
+  }, [stateA.analysisId, stateB.analysisId, isComparing]);
 
   // Auto-trigger comparison exactly once when both analyses finish
   const bothDone = stateA.analysisComplete && stateB.analysisComplete;

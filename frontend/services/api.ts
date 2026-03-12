@@ -1,30 +1,54 @@
 const API_BASE_URL = "";
+
+/**
+ * Delay helper for retry backoff.
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function apiFetch<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
+  retries = 2,
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ detail: "Unknown error" }));
-    let message = `API error: ${res.status}`;
-    if (typeof error.detail === "string") {
-      message = error.detail;
-    } else if (Array.isArray(error.detail)) {
-      message = error.detail.map((e: any) => e.msg).join("; ");
+    // Retry on 429 with exponential backoff
+    if (res.status === 429 && attempt < retries) {
+      await delay(2000 * (attempt + 1));
+      continue;
     }
-    throw new Error(message);
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: "Unknown error" }));
+      let message: string;
+      if (res.status === 429) {
+        message = "Too many requests. Please wait a moment and try again.";
+      } else if (typeof error.detail === "string") {
+        message = error.detail;
+      } else if (Array.isArray(error.detail)) {
+        message = error.detail.map((e: any) => e.msg).join("; ");
+      } else {
+        message = `API error: ${res.status}`;
+      }
+      throw new Error(message);
+    }
+
+    return res.json();
   }
 
-  return res.json();
+  // Should not reach here, but satisfy TypeScript
+  throw new Error("Request failed after retries");
 }
 
 // ─── Resume ───────────────────────────────────────────────────

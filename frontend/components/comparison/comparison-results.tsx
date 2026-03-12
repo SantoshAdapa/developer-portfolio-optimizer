@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Trophy, ArrowRight, Equal } from "lucide-react";
+import { Trophy, ArrowRight, Equal, Star, Code2, Lightbulb } from "lucide-react";
 import { ScoreMeter } from "@/components/analysis/score-meter";
 import { SkillRadarChart } from "@/components/charts/skill-radar-chart";
 import type {
@@ -319,6 +319,144 @@ export function ComparisonResults({
           </div>
         </div>
       </motion.div>
+
+      {/* ── 6. Developer Summaries ────────────────────── */}
+      {(comparison.developer_a_summary?.top_skills?.length > 0 ||
+        comparison.developer_b_summary?.top_skills?.length > 0) && (
+        <motion.div variants={section} className="glass-card p-6 md:p-8">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-5">
+            Developer Summaries
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              { data: comparison.developer_a_summary, color: "violet" },
+              { data: comparison.developer_b_summary, color: "blue" },
+            ].map(({ data, color }) => (
+              <div
+                key={data?.label}
+                className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+              >
+                <div className="flex items-center gap-2">
+                  <Star className={`h-4 w-4 text-${color}-400`} />
+                  <span className={`text-sm font-bold text-${color}-400`}>
+                    {data?.label}
+                  </span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    Score: {data?.overall_score}
+                  </span>
+                </div>
+                {data?.github_username && (
+                  <p className="text-xs text-muted-foreground">
+                    GitHub: @{data.github_username} · {data.public_repos} repos · {data.total_stars} stars
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {data?.skill_count} skills detected
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {data?.top_skills?.map((skill: string) => (
+                    <span
+                      key={skill}
+                      className={`text-[10px] px-2 py-0.5 rounded-full bg-${color}-500/10 text-${color}-400 border border-${color}-500/20`}
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── 7. Strengths & Weaknesses ────────────────── */}
+      {comparison.strengths_weaknesses?.developer_a && (
+        <motion.div variants={section} className="glass-card p-6 md:p-8">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-5">
+            Strengths &amp; Weaknesses
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              { data: comparison.strengths_weaknesses.developer_a, label: "Developer A", color: "violet" },
+              { data: comparison.strengths_weaknesses.developer_b, label: "Developer B", color: "blue" },
+            ].map(({ data, label, color }) => (
+              <div key={label} className="space-y-3">
+                <span className={`text-xs font-bold uppercase tracking-widest text-${color}-400`}>
+                  {label}
+                </span>
+                {data?.strengths?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-emerald-400 font-semibold mb-1">Strengths</p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                      {data.strengths.map((s: string) => (
+                        <li key={s} className="flex items-center gap-1.5">
+                          <span className="h-1 w-1 rounded-full bg-emerald-400" />
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {data?.weaknesses?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-amber-400 font-semibold mb-1">Weaknesses</p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                      {data.weaknesses.map((w: string) => (
+                        <li key={w} className="flex items-center gap-1.5">
+                          <span className="h-1 w-1 rounded-full bg-amber-400" />
+                          {w}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── 8. Comparison Insights ────────────────────── */}
+      {comparison.insights?.length > 0 && (
+        <motion.div variants={section} className="glass-card p-6 md:p-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Lightbulb className="h-4 w-4 text-amber-400" />
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Comparison Insights
+            </h3>
+          </div>
+          <ul className="space-y-2">
+            {comparison.insights.map((insight, i) => (
+              <li key={i} className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                {insight}
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+      )}
+
+      {/* ── 9. Skill Overlap ─────────────────────────── */}
+      {comparison.skill_comparison?.shared_skills?.length > 0 && (
+        <motion.div variants={section} className="glass-card p-6 md:p-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Code2 className="h-4 w-4 text-cyan-400" />
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Shared Skills ({comparison.skill_comparison.shared_skills.length})
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {comparison.skill_comparison.shared_skills.map((skill: string) => (
+              <span
+                key={skill}
+                className="text-[11px] px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 capitalize"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

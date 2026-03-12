@@ -297,6 +297,12 @@ export interface CompareResponse {
   github_activity_diff: number;
   winner: "developer_a" | "developer_b" | "tie";
   summary: string;
+  developer_a_summary: Record<string, any>;
+  developer_b_summary: Record<string, any>;
+  skill_comparison: Record<string, any>;
+  project_comparison: Record<string, any>;
+  strengths_weaknesses: Record<string, any>;
+  insights: string[];
 }
 
 // ─── Radar Chart Types ───────────────────────────────────────

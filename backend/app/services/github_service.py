@@ -1,4 +1,7 @@
 import asyncio
+import logging
+import re
+import time
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
@@ -10,14 +13,41 @@ from app.config import settings
 from app.models.enums import CommitFrequency
 from app.models.schemas import GitHubSummary, RepoSummary
 
+logger = logging.getLogger(__name__)
 
-def extract_username(github_url: str) -> str:
-    """Extract GitHub username from a profile URL."""
-    path = urlparse(str(github_url)).path.strip("/")
-    # Take first segment only (handles trailing slashes, extra paths)
-    username = path.split("/")[0]
+# ── In-memory cache for GitHub analysis results ──────────────
+# username → (GitHubSummary, timestamp)
+_github_cache: dict[str, tuple[GitHubSummary, float]] = {}
+_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+_GITHUB_USERNAME_RE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$")
+
+
+def extract_username(value: str) -> str:
+    """Normalise a GitHub username or profile URL into a plain username.
+
+    Handles:
+      - Plain username: ``octocat``
+      - With @: ``@octocat``
+      - Full URL: ``https://github.com/octocat``
+      - URL with trailing path: ``https://github.com/octocat/repo``
+    """
+    value = value.strip().rstrip("/")
+
+    # Strip URL portion if present
+    if "github.com" in value:
+        parsed = urlparse(value if "://" in value else f"https://{value}")
+        path = parsed.path.strip("/")
+        username = path.split("/")[0] if path else ""
+    else:
+        username = value.lstrip("@")
+
     if not username:
-        raise ValueError("Could not extract GitHub username from URL")
+        raise ValueError("Could not extract GitHub username from input")
+
+    if not _GITHUB_USERNAME_RE.match(username):
+        raise ValueError(f"Invalid GitHub username format: {username}")
+
     return username
 
 
@@ -28,12 +58,25 @@ def _build_headers() -> dict[str, str]:
     return headers
 
 
+async def _github_get(client: httpx.AsyncClient, url: str, **kwargs: Any) -> httpx.Response:
+    """Wrapper around client.get that handles GitHub rate-limit responses."""
+    resp = await client.get(url, headers=_build_headers(), **kwargs)
+    if resp.status_code == 403 and "rate limit" in resp.text.lower():
+        logger.warning("GitHub API rate-limit hit for %s", url)
+        raise httpx.HTTPStatusError(
+            "GitHub API rate limit exceeded",
+            request=resp.request,
+            response=resp,
+        )
+    return resp
+
+
 async def fetch_user_profile(username: str) -> dict:
     """Fetch basic GitHub user profile."""
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(
+        resp = await _github_get(
+            client,
             f"{settings.github_api_base}/users/{username}",
-            headers=_build_headers(),
         )
         resp.raise_for_status()
         return resp.json()
@@ -42,9 +85,9 @@ async def fetch_user_profile(username: str) -> dict:
 async def fetch_repos(username: str, max_repos: int = 30) -> list[dict]:
     """Fetch public repos sorted by most recently pushed."""
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(
+        resp = await _github_get(
+            client,
             f"{settings.github_api_base}/users/{username}/repos",
-            headers=_build_headers(),
             params={
                 "sort": "pushed",
                 "direction": "desc",
@@ -59,9 +102,9 @@ async def fetch_repos(username: str, max_repos: int = 30) -> list[dict]:
 async def fetch_recent_commits(username: str, repo_name: str) -> list[dict]:
     """Fetch recent commits for a single repo (last 30)."""
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(
+        resp = await _github_get(
+            client,
             f"{settings.github_api_base}/repos/{username}/{repo_name}/commits",
-            headers=_build_headers(),
             params={"per_page": 30},
         )
         if resp.status_code != 200:
@@ -110,16 +153,16 @@ async def fetch_repo_tree(
 ) -> list[str]:
     """Fetch the file tree of a repo (recursive). Returns list of file paths."""
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(
+        resp = await _github_get(
+            client,
             f"{settings.github_api_base}/repos/{username}/{repo_name}/git/trees/{branch}",
-            headers=_build_headers(),
             params={"recursive": "1"},
         )
         if resp.status_code != 200:
             # Retry with 'master' branch
-            resp = await client.get(
+            resp = await _github_get(
+                client,
                 f"{settings.github_api_base}/repos/{username}/{repo_name}/git/trees/master",
-                headers=_build_headers(),
                 params={"recursive": "1"},
             )
             if resp.status_code != 200:
@@ -677,7 +720,17 @@ async def _deep_analyze_repo(username: str, repo: dict) -> dict:
 
 
 async def analyze_github_profile(username: str) -> GitHubSummary:
-    """Full GitHub profile analysis — fetches profile, repos, commits, and deep repo analysis."""
+    """Full GitHub profile analysis — fetches profile, repos, commits, and deep repo analysis.
+
+    Results are cached for 5 minutes to avoid repeated API calls.
+    """
+    # Check cache first
+    cached = _github_cache.get(username.lower())
+    if cached is not None:
+        summary, ts = cached
+        if (time.monotonic() - ts) < _CACHE_TTL_SECONDS:
+            logger.info("Returning cached GitHub analysis for %s", username)
+            return summary
 
     # Parallel fetch: profile + repos
     profile_data, repos_data = await asyncio.gather(
@@ -743,7 +796,7 @@ async def analyze_github_profile(username: str) -> GitHubSummary:
 
     commit_frequency = _determine_commit_frequency(commit_dates)
 
-    return GitHubSummary(
+    result = GitHubSummary(
         username=username,
         avatar_url=profile_data.get("avatar_url"),
         bio=profile_data.get("bio"),
@@ -754,3 +807,8 @@ async def analyze_github_profile(username: str) -> GitHubSummary:
         commit_frequency=commit_frequency,
         notable_repos=notable_repos,
     )
+
+    # Store in cache
+    _github_cache[username.lower()] = (result, time.monotonic())
+
+    return result

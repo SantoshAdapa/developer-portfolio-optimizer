@@ -304,6 +304,12 @@ class CompareResponse(BaseModel):
     github_activity_diff: int = 0
     winner: str = Field(description="developer_a | developer_b | tie")
     summary: str = ""
+    developer_a_summary: dict = Field(default_factory=dict)
+    developer_b_summary: dict = Field(default_factory=dict)
+    skill_comparison: dict = Field(default_factory=dict)
+    project_comparison: dict = Field(default_factory=dict)
+    strengths_weaknesses: dict = Field(default_factory=dict)
+    insights: list[str] = []
 
 
 class ArchetypeDetail(BaseModel):

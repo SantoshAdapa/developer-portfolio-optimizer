@@ -105,9 +105,12 @@ async def run_analysis(
 
     github_summary = None
     if github_url:
-        gh_error = validate_github_url(github_url)
-        if gh_error:
-            raise HTTPException(status_code=400, detail=gh_error)
+        # Accept both URLs and plain usernames — skip URL validation for plain usernames
+        stripped = github_url.strip().lstrip("@")
+        if "github.com" in stripped or "/" in stripped:
+            gh_error = validate_github_url(github_url)
+            if gh_error:
+                raise HTTPException(status_code=400, detail=gh_error)
 
     # ── Save & extract resume (if provided) ────────────
     resume_text = ""
@@ -142,8 +145,12 @@ async def run_analysis(
         coro_labels.append("embed")
 
     if github_url:
-        coros.append(analyze_github_profile(extract_username(github_url)))
-        coro_labels.append("github")
+        try:
+            gh_username = extract_username(github_url)
+            coros.append(analyze_github_profile(gh_username))
+            coro_labels.append("github")
+        except ValueError as e:
+            logger.warning("Invalid GitHub input: %s — %s", github_url, e)
 
     raw_results = await asyncio.gather(*coros, return_exceptions=True) if coros else []
     result_map = dict(zip(coro_labels, raw_results))
