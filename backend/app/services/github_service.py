@@ -58,7 +58,9 @@ def _build_headers() -> dict[str, str]:
     return headers
 
 
-async def _github_get(client: httpx.AsyncClient, url: str, **kwargs: Any) -> httpx.Response:
+async def _github_get(
+    client: httpx.AsyncClient, url: str, **kwargs: Any
+) -> httpx.Response:
     """Wrapper around client.get that handles GitHub rate-limit responses."""
     resp = await client.get(url, headers=_build_headers(), **kwargs)
     if resp.status_code == 403 and "rate limit" in resp.text.lower():

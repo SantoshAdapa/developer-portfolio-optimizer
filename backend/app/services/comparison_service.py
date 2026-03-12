@@ -34,8 +34,11 @@ def _build_developer_summary(
     """Create a short summary dict for one developer."""
     top_skills = sorted(
         skills,
-        key=lambda s: (
-            {"advanced": 3, "intermediate": 2, "beginner": 1}.get(s.proficiency.value if hasattr(s.proficiency, "value") else str(s.proficiency), 0)
+        key=lambda s: {"advanced": 3, "intermediate": 2, "beginner": 1}.get(
+            s.proficiency.value
+            if hasattr(s.proficiency, "value")
+            else str(s.proficiency),
+            0,
         ),
         reverse=True,
     )[:8]
@@ -67,7 +70,9 @@ def _compare_projects(
                 "name": r.name,
                 "language": r.language,
                 "stars": r.stars,
-                "technologies": r.detected_technologies[:5] if r.detected_technologies else [],
+                "technologies": r.detected_technologies[:5]
+                if r.detected_technologies
+                else [],
                 "has_ci": r.has_ci,
                 "has_tests": r.has_tests,
             }
@@ -207,10 +212,16 @@ def compare_profiles(
         )
 
     # ── Extended fields ────────────────────────────────────
-    developer_a_summary = _build_developer_summary(score_a, skills_a, github_a, "Developer A")
-    developer_b_summary = _build_developer_summary(score_b, skills_b, github_b, "Developer B")
+    developer_a_summary = _build_developer_summary(
+        score_a, skills_a, github_a, "Developer A"
+    )
+    developer_b_summary = _build_developer_summary(
+        score_b, skills_b, github_b, "Developer B"
+    )
     project_comparison = _compare_projects(github_a, github_b)
-    strengths_weaknesses = _compare_strengths_weaknesses(score_a, score_b, skills_a, skills_b)
+    strengths_weaknesses = _compare_strengths_weaknesses(
+        score_a, score_b, skills_a, skills_b
+    )
 
     # Shared vs unique skills
     shared_skills = sorted(names_a & names_b)
