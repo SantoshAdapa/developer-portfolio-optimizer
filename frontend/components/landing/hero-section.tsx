@@ -50,7 +50,7 @@ export function HeroSection() {
         >
           {/* Badge */}
           <motion.div variants={item}>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-sm text-muted-foreground backdrop-blur-xl mb-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-foreground/[0.08] bg-foreground/[0.03] px-4 py-1.5 text-sm text-muted-foreground backdrop-blur-xl mb-8">
               <Sparkles className="h-3.5 w-3.5 text-violet-400" />
               <span>Powered by AI</span>
               <span className="h-1 w-1 rounded-full bg-violet-400" />

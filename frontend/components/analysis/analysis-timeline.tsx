@@ -38,7 +38,7 @@ export function AnalysisTimeline({ steps }: AnalysisTimelineProps) {
                 "absolute left-[13px] top-[28px] w-[2px] h-[calc(100%)] transition-colors duration-500",
                 step.status === "complete"
                   ? "bg-emerald-500/40"
-                  : "bg-white/[0.06]"
+                  : "bg-foreground/[0.06]"
               )}
             />
           )}
@@ -68,7 +68,7 @@ export function AnalysisTimeline({ steps }: AnalysisTimelineProps) {
               ) : (
                 <motion.div
                   key="pending"
-                  className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-white/[0.04] ring-2 ring-white/[0.08]"
+                  className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-foreground/[0.04] ring-2 ring-foreground/[0.08]"
                 >
                   <Circle className="h-2.5 w-2.5 text-muted-foreground/40" />
                 </motion.div>

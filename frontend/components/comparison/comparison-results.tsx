@@ -130,11 +130,11 @@ export function ComparisonResults({
 
           {/* VS divider */}
           <div className="hidden md:flex flex-col items-center gap-2">
-            <div className="h-8 w-px bg-white/[0.08]" />
+            <div className="h-8 w-px bg-foreground/[0.08]" />
             <span className="text-xs font-bold text-muted-foreground/50 uppercase tracking-widest">
               vs
             </span>
-            <div className="h-8 w-px bg-white/[0.08]" />
+            <div className="h-8 w-px bg-foreground/[0.08]" />
           </div>
 
           {/* Dev B */}
@@ -197,7 +197,7 @@ export function ComparisonResults({
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Dev A bar */}
-                    <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
                       <motion.div
                         className={`h-full rounded-full ${
                           aWins || tie
@@ -212,7 +212,7 @@ export function ComparisonResults({
                       />
                     </div>
                     {/* Dev B bar */}
-                    <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
                       <motion.div
                         className={`h-full rounded-full ${
                           !aWins || tie
@@ -260,7 +260,7 @@ export function ComparisonResults({
               );
               return (
                 aSkills.length > 0 && (
-                  <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <div className="space-y-3 p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.06]">
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-violet-400" />
                       <span className="text-xs font-bold uppercase tracking-widest text-violet-400">
@@ -292,7 +292,7 @@ export function ComparisonResults({
               );
               return (
                 bSkills.length > 0 && (
-                  <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <div className="space-y-3 p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.06]">
                     <div className="flex items-center gap-2">
                       <Target className="h-4 w-4 text-blue-400" />
                       <span className="text-xs font-bold uppercase tracking-widest text-blue-400">
@@ -326,7 +326,7 @@ export function ComparisonResults({
         className={`glass-card p-6 md:p-8 bg-gradient-to-br ${winnerGradient}`}
       >
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-foreground/[0.06]">
             <WinnerIcon
               className={`h-6 w-6 ${
                 comparison.winner === "developer_a"
@@ -377,7 +377,7 @@ export function ComparisonResults({
             ].map(({ data, color }) => (
               <div
                 key={data?.label}
-                className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+                className="space-y-3 p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.06]"
               >
                 <div className="flex items-center gap-2">
                   <Star className={`h-4 w-4 text-${color}-400`} />

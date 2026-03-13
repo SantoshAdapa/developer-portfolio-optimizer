@@ -3,22 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, Menu, X } from "lucide-react";
+import { Sparkles, Menu, X, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { siteConfig, navLinks } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
+import { useTheme } from "@/lib/theme-provider";
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.08] bg-background/60 backdrop-blur-xl"
+      className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/60 backdrop-blur-xl"
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
@@ -47,7 +48,7 @@ export function Navbar() {
               {pathname === link.href && (
                 <motion.div
                   layoutId="navbar-active"
-                  className="absolute inset-0 rounded-lg bg-white/[0.08]"
+                  className="absolute inset-0 rounded-lg bg-foreground/[0.06]"
                   transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                 />
               )}
@@ -56,25 +57,39 @@ export function Navbar() {
           ))}
         </div>
 
-        {/* CTA */}
+        {/* Theme Toggle */}
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="gradient" size="sm" asChild>
-            <Link href="/analyze">Get Started</Link>
-          </Button>
+          <button
+            onClick={toggleTheme}
+            className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            <Sun className={cn("h-4 w-4 absolute transition-all duration-300", theme === "dark" ? "opacity-0 rotate-90 scale-0" : "opacity-100 rotate-0 scale-100")} />
+            <Moon className={cn("h-4 w-4 absolute transition-all duration-300", theme === "dark" ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-0")} />
+          </button>
         </div>
 
         {/* Mobile Menu Toggle */}
-        <button
-          className="md:hidden p-2 rounded-lg hover:bg-white/[0.08] transition-colors"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Toggle menu"
-        >
-          {mobileMenuOpen ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
-          )}
-        </button>
+        <div className="md:hidden flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          <button
+            className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       </nav>
 
       {/* Mobile Menu */}
@@ -83,7 +98,7 @@ export function Navbar() {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
-          className="md:hidden border-t border-white/[0.08] bg-background/95 backdrop-blur-xl"
+          className="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-xl"
         >
           <div className="flex flex-col gap-1 p-4">
             {navLinks.map((link) => (
@@ -94,18 +109,13 @@ export function Navbar() {
                 className={cn(
                   "px-4 py-3 text-sm font-medium rounded-lg transition-colors",
                   pathname === link.href
-                    ? "text-foreground bg-white/[0.08]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/[0.05]"
+                    ? "text-foreground bg-foreground/[0.06]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
                 )}
               >
                 {link.label}
               </Link>
             ))}
-            <div className="pt-2">
-              <Button variant="gradient" className="w-full" asChild>
-                <Link href="/analyze">Get Started</Link>
-              </Button>
-            </div>
           </div>
         </motion.div>
       )}

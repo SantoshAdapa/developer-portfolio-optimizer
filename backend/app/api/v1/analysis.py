@@ -50,6 +50,9 @@ from app.services.scoring_service import (
     extract_skills_from_github,
     extract_skills_from_text,
     generate_ai_insights,
+    generate_fallback_project_ideas,
+    generate_fallback_roadmap,
+    generate_fallback_suggestions,
     generate_learning_roadmap,
 )
 from app.db import store
@@ -325,6 +328,20 @@ async def _run_analysis_job(
         for i, r in enumerate(rec_results):
             if isinstance(r, BaseException):
                 logger.exception("Recommendation generation %d failed", i, exc_info=r)
+
+        # ── Local fallbacks when AI recommendations are empty ──
+        if not portfolio_suggestions:
+            portfolio_suggestions = generate_fallback_suggestions(
+                skill_gap, skills, career_direction
+            )
+        if not project_ideas:
+            project_ideas = generate_fallback_project_ideas(
+                skill_gap, skills, career_direction
+            )
+        if not career_roadmap or not career_roadmap.milestones:
+            career_roadmap = generate_fallback_roadmap(
+                skill_gap, career_direction, skills
+            )
 
         # ── Persist completed results ──────────────────────
         store.save(

@@ -203,7 +203,7 @@ export function AiExplanation({ score, skills, github }: AiExplanationProps) {
               <motion.div
                 key={entry.label}
                 variants={item}
-                className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] transition-colors duration-200"
+                className="flex items-start gap-3 p-3 rounded-xl bg-foreground/[0.02] border border-foreground/[0.06] hover:bg-foreground/[0.04] transition-colors duration-200"
               >
                 <div
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${entry.iconBg}`}

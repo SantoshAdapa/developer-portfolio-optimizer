@@ -98,7 +98,7 @@ export function GitHubInput({
           onChange={(e) => setValue(e.target.value)}
           disabled={isLoading}
           className={cn(
-            "h-12 pl-10 pr-24 rounded-xl bg-white/[0.03] border-white/[0.08] placeholder:text-muted-foreground/50 focus:border-blue-500/40 focus:ring-blue-500/20 transition-all",
+            "h-12 pl-10 pr-24 rounded-xl bg-foreground/[0.03] border-foreground/[0.08] placeholder:text-muted-foreground/50 focus:border-blue-500/40 focus:ring-blue-500/20 transition-all",
             isSuccess && "border-emerald-500/30",
             error && "border-red-500/30"
           )}

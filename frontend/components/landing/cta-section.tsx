@@ -18,8 +18,8 @@ export function CtaSection() {
         >
           {/* Gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-violet-600/20 to-purple-600/20" />
-          <div className="absolute inset-0 bg-white/[0.02] backdrop-blur-xl" />
-          <div className="absolute inset-0 border border-white/[0.08] rounded-3xl" />
+          <div className="absolute inset-0 bg-foreground/[0.02] backdrop-blur-xl" />
+          <div className="absolute inset-0 border border-foreground/[0.08] rounded-3xl" />
 
           {/* Floating orbs */}
           <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-blue-500/20 blur-[80px]" />

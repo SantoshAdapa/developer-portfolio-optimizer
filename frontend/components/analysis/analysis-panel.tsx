@@ -41,7 +41,7 @@ export function AnalysisPanel({
             exit={{ opacity: 0 }}
             className="flex-1 flex flex-col items-center justify-center text-center gap-4"
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground/[0.04] border border-foreground/[0.06]">
               <BrainCircuit className="h-8 w-8 text-muted-foreground/40" />
             </div>
             <div>

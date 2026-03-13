@@ -34,12 +34,12 @@ function MilestoneCard({
       {/* Timeline connector */}
       <div className="flex flex-col items-center">
         <div
-          className="flex h-8 w-8 items-center justify-center rounded-full shrink-0 ring-2 bg-white/[0.04] ring-white/[0.1]"
+          className="flex h-8 w-8 items-center justify-center rounded-full shrink-0 ring-2 bg-foreground/[0.04] ring-foreground/[0.1]"
         >
           <Circle className="h-3 w-3 text-muted-foreground/40" />
         </div>
         {!isLast && (
-          <div className="w-[2px] flex-1 min-h-[40px] bg-white/[0.06]" />
+          <div className="w-[2px] flex-1 min-h-[40px] bg-foreground/[0.06]" />
         )}
       </div>
 

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "@/styles/globals.css";
 import { cn } from "@/lib/utils";
 import { QueryProvider } from "@/lib/query-provider";
+import { ThemeProvider } from "@/lib/theme-provider";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { siteConfig } from "@/lib/constants";
@@ -36,16 +37,18 @@ export default function RootLayout({
           "min-h-screen bg-background font-sans antialiased"
         )}
       >
-        <QueryProvider>
-          {/* Animated floating gradient orbs */}
-          <div className="bg-orbs"><span /></div>
+        <ThemeProvider>
+          <QueryProvider>
+            {/* Animated floating gradient orbs */}
+            <div className="bg-orbs"><span /></div>
 
-          <div className="relative flex min-h-screen flex-col">
-            <Navbar />
-            <main className="flex-1 pt-16">{children}</main>
-            <Footer />
-          </div>
-        </QueryProvider>
+            <div className="relative flex min-h-screen flex-col">
+              <Navbar />
+              <main className="flex-1 pt-16">{children}</main>
+              <Footer />
+            </div>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

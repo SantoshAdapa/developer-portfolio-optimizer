@@ -66,7 +66,7 @@ export function JDMatchPanel({ analysisId }: JDMatchPanelProps) {
       </p>
 
       <textarea
-        className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm
+        className="w-full rounded-lg border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3 text-sm
                    text-foreground placeholder:text-muted-foreground/50 focus:outline-none
                    focus:ring-1 focus:ring-violet-500/40 resize-y min-h-[120px]"
         rows={5}

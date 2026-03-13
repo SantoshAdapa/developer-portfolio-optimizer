@@ -176,7 +176,7 @@ export default function JobMatchPage() {
         </div>
 
         {resumeFile ? (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3">
             <div className="flex items-center gap-2 min-w-0">
               <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />
               <span className="text-sm text-foreground truncate">{resumeFile.name}</span>
@@ -192,7 +192,7 @@ export default function JobMatchPage() {
             </button>
           </div>
         ) : (
-          <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-white/[0.08] bg-white/[0.01] px-4 py-8 cursor-pointer hover:border-violet-500/30 hover:bg-violet-500/[0.02] transition-all">
+          <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/[0.08] bg-foreground/[0.01] px-4 py-8 cursor-pointer hover:border-violet-500/30 hover:bg-violet-500/[0.02] transition-all">
             <Upload className="h-6 w-6 text-muted-foreground/50" />
             <span className="text-sm text-muted-foreground">
               Click to upload your resume (PDF)
@@ -246,7 +246,7 @@ export default function JobMatchPage() {
               className={`flex flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition-all ${
                 mode === key
                   ? "border-violet-500/50 bg-violet-500/10 text-foreground"
-                  : "border-white/[0.08] bg-white/[0.02] text-muted-foreground hover:border-white/20 hover:text-foreground"
+                  : "border-foreground/[0.08] bg-foreground/[0.02] text-muted-foreground hover:border-foreground/20 hover:text-foreground"
               }`}
             >
               <Icon className={`h-5 w-5 ${mode === key ? "text-violet-400" : ""}`} />
@@ -276,7 +276,7 @@ export default function JobMatchPage() {
                 Job Description
               </label>
               <textarea
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm
+                className="w-full rounded-lg border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3 text-sm
                            text-foreground placeholder:text-muted-foreground/50 focus:outline-none
                            focus:ring-1 focus:ring-violet-500/40 resize-y min-h-[160px]"
                 rows={7}
@@ -314,7 +314,7 @@ export default function JobMatchPage() {
                       className={`flex flex-col items-start gap-1 rounded-xl border p-4 text-left transition-all ${
                         selectedRole === r.key
                           ? "border-violet-500/50 bg-violet-500/10"
-                          : "border-white/[0.08] bg-white/[0.02] hover:border-white/20"
+                          : "border-foreground/[0.08] bg-foreground/[0.02] hover:border-foreground/20"
                       }`}
                     >
                       <span
@@ -357,7 +357,7 @@ export default function JobMatchPage() {
                       className={`flex flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition-all ${
                         selectedLevel === l.key
                           ? "border-violet-500/50 bg-violet-500/10"
-                          : "border-white/[0.08] bg-white/[0.02] hover:border-white/20"
+                          : "border-foreground/[0.08] bg-foreground/[0.02] hover:border-foreground/20"
                       }`}
                     >
                       <span
@@ -436,7 +436,7 @@ export default function JobMatchPage() {
               </div>
 
               {/* Score bar */}
-              <div className="mt-4 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+              <div className="mt-4 h-2 rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${result.match_percentage}%` }}
@@ -593,7 +593,7 @@ export default function JobMatchPage() {
                             <span className="text-xs text-muted-foreground">{domain}</span>
                             <span className="text-xs font-semibold tabular-nums">{pct}%</span>
                           </div>
-                          <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${pct}%` }}
