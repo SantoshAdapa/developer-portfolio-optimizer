@@ -277,13 +277,13 @@ def _match_experience_level(
 
     seen_partial: set[str] = set()
     unique_partial: list[dict] = []
-    for p in below_prof_details:
+    for pd in below_prof_details:
         if (
-            p["skill"].lower() not in seen_partial
-            and p["skill"].lower() not in seen_matched
+            pd["skill"].lower() not in seen_partial
+            and pd["skill"].lower() not in seen_matched
         ):
-            seen_partial.add(p["skill"].lower())
-            unique_partial.append(p)
+            seen_partial.add(pd["skill"].lower())
+            unique_partial.append(pd)
 
     skill_count_score = min(100, int(len(unique_skills) / max(expected_count, 1) * 100))
     prof_score = min(100, int(meeting_prof / max(expected_count, 1) * 100))
