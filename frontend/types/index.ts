@@ -328,6 +328,7 @@ export interface JDMatchResponse {
   label: string;
   domain_distribution: Record<string, number>;
   summary: string;
+  recommended_skills: string[];
 }
 
 export interface RoleTemplateInfo {

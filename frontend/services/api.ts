@@ -236,6 +236,65 @@ export async function matchJobDescriptionByLevel(
   });
 }
 
+// ─── JD Match (Direct Resume Upload) ─────────────────────────
+
+export async function matchResumeJobDescription(file: File, jobDescription: string) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("job_description", jobDescription);
+
+  const url = `${API_BASE_URL}/api/v1/jd-match/resume`;
+  const res = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Match failed" }));
+    throw new Error(error.detail || `Match error: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function matchResumeByRole(file: File, roleKey: string) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("role_key", roleKey);
+
+  const url = `${API_BASE_URL}/api/v1/jd-match/resume/role`;
+  const res = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Match failed" }));
+    throw new Error(error.detail || `Match error: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function matchResumeByLevel(file: File, experienceLevel: string) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("experience_level", experienceLevel);
+
+  const url = `${API_BASE_URL}/api/v1/jd-match/resume/level`;
+  const res = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Match failed" }));
+    throw new Error(error.detail || `Match error: ${res.status}`);
+  }
+
+  return res.json();
+}
+
 export async function getRoleTemplates() {
   return apiFetch<import("@/types").RoleTemplateInfo[]>("/api/v1/jd-match/roles");
 }

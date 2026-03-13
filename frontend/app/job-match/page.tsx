@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Briefcase,
@@ -8,19 +8,19 @@ import {
   AlertTriangle,
   XCircle,
   Loader2,
-  Send,
-  ChevronDown,
+  Zap,
   User,
   FileText,
   Star,
-  Zap,
   BarChart3,
+  Upload,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  matchJobDescription,
-  matchJobDescriptionByRole,
-  matchJobDescriptionByLevel,
+  matchResumeJobDescription,
+  matchResumeByRole,
+  matchResumeByLevel,
   getRoleTemplates,
   getExperienceLevels,
 } from "@/services/api";
@@ -44,7 +44,7 @@ const DOMAIN_COLORS: Record<string, string> = {
 
 export default function JobMatchPage() {
   const [mode, setMode] = useState<MatchMode>("jd");
-  const [analysisId, setAnalysisId] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jdText, setJdText] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
@@ -71,8 +71,24 @@ export default function JobMatchPage() {
       .finally(() => setLoadingMeta(false));
   }, []);
 
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== "application/pdf") {
+        setError("Please upload a PDF file.");
+        return;
+      }
+      setResumeFile(file);
+      setError(null);
+    }
+  }, []);
+
+  const handleRemoveResume = useCallback(() => {
+    setResumeFile(null);
+  }, []);
+
   const canSubmit = () => {
-    if (!analysisId.trim()) return false;
+    if (!resumeFile) return false;
     if (mode === "jd") return jdText.trim().length >= 20;
     if (mode === "role") return !!selectedRole;
     if (mode === "level") return !!selectedLevel;
@@ -80,9 +96,8 @@ export default function JobMatchPage() {
   };
 
   const handleSubmit = async () => {
-    const id = analysisId.trim();
-    if (!id) {
-      setError("Please enter your Analysis ID.");
+    if (!resumeFile) {
+      setError("Please upload your resume first.");
       return;
     }
     setLoading(true);
@@ -91,15 +106,15 @@ export default function JobMatchPage() {
     try {
       let res: JDMatchResponse;
       if (mode === "jd") {
-        res = (await matchJobDescription(id, jdText.trim())) as JDMatchResponse;
+        res = (await matchResumeJobDescription(resumeFile, jdText.trim())) as JDMatchResponse;
       } else if (mode === "role") {
-        res = (await matchJobDescriptionByRole(id, selectedRole)) as JDMatchResponse;
+        res = (await matchResumeByRole(resumeFile, selectedRole)) as JDMatchResponse;
       } else {
-        res = (await matchJobDescriptionByLevel(id, selectedLevel)) as JDMatchResponse;
+        res = (await matchResumeByLevel(resumeFile, selectedLevel)) as JDMatchResponse;
       }
       setResult(res);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Match failed. Check your Analysis ID.");
+      setError(err instanceof Error ? err.message : "Match failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -136,38 +151,60 @@ export default function JobMatchPage() {
           </h1>
         </div>
         <p className="text-muted-foreground">
-          Compare your developer profile against a job description, role template, or experience
+          Upload your resume and compare it against a job description, role template, or experience
           level using semantic AI matching.
         </p>
       </motion.div>
 
-      {/* Analysis ID input */}
+      {/* Resume Upload */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.05 }}
         className="glass-card p-6 mb-5"
       >
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-          Your Analysis ID
-        </label>
-        <p className="text-xs text-muted-foreground mb-3">
-          Run an analysis on the{" "}
-          <a href="/analyze" className="text-violet-400 hover:underline">
-            Analyze page
-          </a>{" "}
-          first, then paste the ID from the results URL (e.g.{" "}
-          <code className="bg-white/[0.05] px-1 rounded text-xs">abc123def456</code>).
-        </p>
-        <input
-          type="text"
-          placeholder="e.g. abc123def456"
-          value={analysisId}
-          onChange={(e) => setAnalysisId(e.target.value)}
-          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-2.5 text-sm
-                     text-foreground placeholder:text-muted-foreground/50 focus:outline-none
-                     focus:ring-1 focus:ring-violet-500/40 font-mono"
-        />
+        <div className="flex items-center gap-2 mb-3">
+          <Upload className="h-4 w-4 text-blue-400" />
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Upload Resume
+          </label>
+          {resumeFile && (
+            <span className="ml-auto text-xs text-emerald-400 font-medium flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" /> Ready
+            </span>
+          )}
+        </div>
+
+        {resumeFile ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />
+              <span className="text-sm text-foreground truncate">{resumeFile.name}</span>
+              <span className="text-xs text-muted-foreground/60 flex-shrink-0">
+                ({(resumeFile.size / 1024).toFixed(0)} KB)
+              </span>
+            </div>
+            <button
+              onClick={handleRemoveResume}
+              className="text-xs text-muted-foreground hover:text-red-400 transition-colors flex-shrink-0"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-white/[0.08] bg-white/[0.01] px-4 py-8 cursor-pointer hover:border-violet-500/30 hover:bg-violet-500/[0.02] transition-all">
+            <Upload className="h-6 w-6 text-muted-foreground/50" />
+            <span className="text-sm text-muted-foreground">
+              Click to upload your resume (PDF)
+            </span>
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
+        )}
       </motion.div>
 
       {/* Mode selector */}
@@ -517,6 +554,28 @@ export default function JobMatchPage() {
                 </div>
               )}
             </div>
+
+            {/* Recommended Skills to Learn */}
+            {result.recommended_skills && result.recommended_skills.length > 0 && (
+              <div className="glass-card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-blue-400" />
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Recommended Skills to Learn
+                  </h3>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {result.recommended_skills.map((skill) => (
+                    <span
+                      key={skill}
+                      className="text-[11px] px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Domain distribution */}
             {result.domain_distribution &&
