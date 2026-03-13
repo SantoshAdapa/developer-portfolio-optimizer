@@ -81,7 +81,7 @@ export function ConfidenceMeter({ confidence }: ConfidenceMeterProps) {
       </div>
 
       {/* Bar */}
-      <div className="h-2.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+      <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
         <motion.div
           className={`h-full rounded-full bg-gradient-to-r ${getConfidenceColor(confidence)}`}
           initial={{ width: 0 }}

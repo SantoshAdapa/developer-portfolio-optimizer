@@ -203,7 +203,7 @@ function AnalyzePageContent() {
             {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/[0.06]" />
+                <div className="w-full border-t border-foreground/[0.06]" />
               </div>
               <div className="relative flex justify-center text-xs">
                 <span className="bg-card px-3 text-muted-foreground/50 uppercase tracking-wider">

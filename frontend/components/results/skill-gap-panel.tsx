@@ -73,7 +73,7 @@ export function SkillGapPanel({ skillGap }: SkillGapPanelProps) {
       </div>
 
       {/* Match progress bar */}
-      <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden">
+      <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
         <motion.div
           className={cn(
             "h-full rounded-full",

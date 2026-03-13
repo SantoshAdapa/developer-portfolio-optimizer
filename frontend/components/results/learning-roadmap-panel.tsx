@@ -83,7 +83,7 @@ export function LearningRoadmapPanel({ roadmap }: LearningRoadmapPanelProps) {
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] transition-colors ${
                           isYouTube
                             ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300"
-                            : "bg-white/[0.05] text-muted-foreground hover:bg-white/[0.1] hover:text-white"
+                            : "bg-foreground/[0.05] text-muted-foreground hover:bg-foreground/[0.1] hover:text-foreground"
                         }`}
                       >
                         {isYouTube ? (

@@ -12,11 +12,11 @@ interface ProjectIdeasProps {
 }
 
 const difficultyStyles: Record<string, string> = {
-  beginner: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
-  intermediate: "bg-amber-500/15 text-amber-300 border-amber-500/20",
-  advanced: "bg-red-500/15 text-red-300 border-red-500/20",
-  easy: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
-  hard: "bg-red-500/15 text-red-300 border-red-500/20",
+  beginner: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+  intermediate: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/20",
+  advanced: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/20",
+  easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+  hard: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/20",
 };
 
 const container = {

@@ -83,7 +83,7 @@ export function FileUploader({
           "relative group cursor-pointer rounded-2xl border-2 border-dashed p-8 transition-all duration-300 text-center",
           isDragActive
             ? "border-blue-500/50 bg-blue-500/[0.08] scale-[1.02]"
-            : "border-white/[0.1] bg-white/[0.02] hover:border-white/[0.2] hover:bg-white/[0.04]",
+            : "border-foreground/[0.1] bg-foreground/[0.02] hover:border-foreground/[0.2] hover:bg-foreground/[0.04]",
           isUploading && "pointer-events-none opacity-60",
           isSuccess && "border-emerald-500/30 bg-emerald-500/[0.05]",
           displayError && "border-red-500/30 bg-red-500/[0.05]"
@@ -155,7 +155,7 @@ export function FileUploader({
                   "flex h-14 w-14 items-center justify-center rounded-2xl transition-colors duration-300",
                   isDragActive
                     ? "bg-blue-500/20"
-                    : "bg-white/[0.06] group-hover:bg-white/[0.1]"
+                    : "bg-foreground/[0.06] group-hover:bg-foreground/[0.1]"
                 )}
               >
                 {selectedFile ? (

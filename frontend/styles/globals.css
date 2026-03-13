@@ -4,26 +4,42 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 220 20% 97%;
+    --foreground: 224 50% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 224 50% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
+    --popover-foreground: 224 50% 12%;
+    --primary: 224 50% 18%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 220 16% 93%;
+    --secondary-foreground: 224 50% 18%;
+    --muted: 220 16% 93%;
+    --muted-foreground: 220 10% 42%;
+    --accent: 220 16% 90%;
+    --accent-foreground: 224 50% 18%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    --border: 220 13% 87%;
+    --input: 220 13% 87%;
+    --ring: 224 50% 18%;
     --radius: 0.75rem;
+
+    /* Theme-aware colors for charts and glass effects */
+    --chart-grid: rgba(100, 116, 139, 0.25);
+    --chart-label: rgba(51, 65, 85, 0.75);
+    --chart-axis: rgba(100, 116, 139, 0.4);
+    --tooltip-bg: rgba(255, 255, 255, 0.95);
+    --tooltip-border: rgba(100, 116, 139, 0.15);
+    --tooltip-label: rgba(30, 41, 59, 0.9);
+    --tooltip-item: rgba(71, 85, 105, 0.8);
+    --glass-bg: rgba(255, 255, 255, 0.6);
+    --glass-border: rgba(100, 116, 139, 0.15);
+    --glass-bg-hover: rgba(255, 255, 255, 0.75);
+    --glass-border-hover: rgba(100, 116, 139, 0.25);
+    --bar-track: rgba(30, 41, 59, 0.06);
+    --shadow-base: 0 4px 24px -4px rgba(100, 116, 139, 0.12);
+    --shadow-hover: 0 8px 32px -4px rgba(100, 116, 139, 0.18);
   }
 
   .dark {
@@ -46,6 +62,22 @@
     --border: 216 34% 17%;
     --input: 216 34% 17%;
     --ring: 216 34% 17%;
+
+    /* Theme-aware colors for charts and glass effects */
+    --chart-grid: rgba(255, 255, 255, 0.08);
+    --chart-label: rgba(255, 255, 255, 0.6);
+    --chart-axis: rgba(255, 255, 255, 0.3);
+    --tooltip-bg: rgba(15, 23, 42, 0.9);
+    --tooltip-border: rgba(255, 255, 255, 0.1);
+    --tooltip-label: rgba(255, 255, 255, 0.8);
+    --tooltip-item: rgba(255, 255, 255, 0.6);
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-bg-hover: rgba(255, 255, 255, 0.06);
+    --glass-border-hover: rgba(255, 255, 255, 0.15);
+    --bar-track: rgba(255, 255, 255, 0.06);
+    --shadow-base: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
+    --shadow-hover: 0 8px 32px -4px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -60,24 +92,40 @@
 
 @layer utilities {
   .glass {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
   }
 
   .glass-card {
-    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-base);
   }
 
   .glass-card-hover {
-    @apply glass-card hover:bg-white/[0.06] hover:border-white/[0.15] transition-all duration-300;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-base);
+    transition: all 0.3s;
+  }
+  .glass-card-hover:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-hover);
   }
 
   .gradient-text {
-    @apply bg-gradient-to-r from-blue-400 via-violet-400 to-purple-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-blue-500 via-violet-500 to-purple-500 bg-clip-text text-transparent;
   }
 
   .gradient-border {
     @apply relative;
-    background: linear-gradient(var(--background), var(--background)) padding-box,
+    background: linear-gradient(hsl(var(--background)), hsl(var(--background))) padding-box,
                 linear-gradient(135deg, hsl(217 91% 60%), hsl(271 91% 65%), hsl(295 91% 60%)) border-box;
     border: 1px solid transparent;
   }
@@ -161,31 +209,49 @@
   position: absolute;
   border-radius: 9999px;
   filter: blur(120px);
+}
+
+/* Dark mode orbs */
+.dark .bg-orbs::before,
+.dark .bg-orbs::after,
+.dark .bg-orbs > span {
   opacity: 0.07;
 }
-.bg-orbs::before {
-  width: 600px;
-  height: 600px;
-  top: -10%;
-  left: -5%;
+.dark .bg-orbs::before {
+  width: 600px; height: 600px; top: -10%; left: -5%;
   background: radial-gradient(circle, hsl(217 91% 60%) 0%, transparent 70%);
   animation: float-orb-a 18s ease-in-out infinite;
 }
-.bg-orbs::after {
-  width: 500px;
-  height: 500px;
-  top: 40%;
-  right: -8%;
+.dark .bg-orbs::after {
+  width: 500px; height: 500px; top: 40%; right: -8%;
   background: radial-gradient(circle, hsl(271 91% 65%) 0%, transparent 70%);
   animation: float-orb-b 22s ease-in-out infinite;
 }
-.bg-orbs > span {
-  display: block;
-  width: 450px;
-  height: 450px;
-  bottom: -5%;
-  left: 35%;
+.dark .bg-orbs > span {
+  display: block; width: 450px; height: 450px; bottom: -5%; left: 35%;
   background: radial-gradient(circle, hsl(220 70% 50%) 0%, transparent 70%);
+  animation: float-orb-c 26s ease-in-out infinite;
+}
+
+/* Light mode orbs — softer pastels */
+:root:not(.dark) .bg-orbs::before,
+:root:not(.dark) .bg-orbs::after,
+:root:not(.dark) .bg-orbs > span {
+  opacity: 0.15;
+}
+:root:not(.dark) .bg-orbs::before {
+  width: 600px; height: 600px; top: -10%; left: -5%;
+  background: radial-gradient(circle, hsl(217 80% 75%) 0%, transparent 70%);
+  animation: float-orb-a 18s ease-in-out infinite;
+}
+:root:not(.dark) .bg-orbs::after {
+  width: 500px; height: 500px; top: 40%; right: -8%;
+  background: radial-gradient(circle, hsl(271 70% 80%) 0%, transparent 70%);
+  animation: float-orb-b 22s ease-in-out infinite;
+}
+:root:not(.dark) .bg-orbs > span {
+  display: block; width: 450px; height: 450px; bottom: -5%; left: 35%;
+  background: radial-gradient(circle, hsl(220 60% 78%) 0%, transparent 70%);
   animation: float-orb-c 26s ease-in-out infinite;
 }
 

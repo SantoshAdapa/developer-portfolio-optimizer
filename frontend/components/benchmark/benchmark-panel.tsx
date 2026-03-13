@@ -105,7 +105,7 @@ export function BenchmarkPanel({ benchmark }: BenchmarkPanelProps) {
         {barEntries.map((entry) => (
           <motion.div key={entry.label} variants={barVariant} className="space-y-1.5">
             <div className="flex items-center justify-between text-sm">
-              <span className={`font-medium ${entry.isUser ? "text-white" : "text-muted-foreground"}`}>
+              <span className={`font-medium ${entry.isUser ? "text-foreground" : "text-muted-foreground"}`}>
                 {entry.label}
                 {entry.isUser && (
                   <span className="ml-2 text-[10px] uppercase tracking-widest text-violet-400 font-semibold">
@@ -117,7 +117,7 @@ export function BenchmarkPanel({ benchmark }: BenchmarkPanelProps) {
                 {entry.value}/100
               </span>
             </div>
-            <div className="h-3 w-full rounded-full bg-white/[0.06] overflow-hidden">
+            <div className="h-3 w-full rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
               <motion.div
                 className={`h-full rounded-full bg-gradient-to-r ${entry.gradient} ${
                   entry.isUser ? "shadow-[0_0_12px_rgba(139,92,246,0.3)]" : ""
@@ -132,7 +132,7 @@ export function BenchmarkPanel({ benchmark }: BenchmarkPanelProps) {
       </motion.div>
 
       {/* Fit scores for all archetypes */}
-      <div className="pt-2 border-t border-white/[0.06]">
+      <div className="pt-2 border-t border-foreground/[0.06]">
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">
           Archetype Fit Scores
         </p>

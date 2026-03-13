@@ -78,9 +78,24 @@ export default function ResultsPage() {
   const benchmarkQuery = useBenchmarks(isDemo ? undefined : analysisId);
 
   const data = (isDemo ? demoProfile?.analysis : analysis.data) as AnalysisResponse | undefined;
-  const portfolioData = (isDemo ? demoProfile?.suggestions : portfolio.data) as Suggestion[] | undefined;
-  const projectsData = (isDemo ? demoProfile?.projectIdeas : projects.data) as ProjectIdea[] | undefined;
-  const roadmapData = (isDemo ? demoProfile?.roadmap : roadmap.data) as CareerRoadmap | undefined;
+
+  // Prefer inline data from the main analysis response (always populated via fallbacks),
+  // only fall back to separate API calls if inline data is empty.
+  const portfolioData = (
+    isDemo
+      ? demoProfile?.suggestions
+      : (data?.portfolio_suggestions?.length ? data.portfolio_suggestions : portfolio.data)
+  ) as Suggestion[] | undefined;
+  const projectsData = (
+    isDemo
+      ? demoProfile?.projectIdeas
+      : (data?.project_ideas?.length ? data.project_ideas : projects.data)
+  ) as ProjectIdea[] | undefined;
+  const roadmapData = (
+    isDemo
+      ? demoProfile?.roadmap
+      : (data?.career_roadmap?.milestones?.length ? data.career_roadmap : roadmap.data)
+  ) as CareerRoadmap | undefined;
   const benchmarkData = (isDemo ? undefined : benchmarkQuery.data) as BenchmarkResponse | undefined;
 
   // Build radar data from radar_scores (skill distribution) or fall back to score categories
@@ -222,18 +237,18 @@ export default function ResultsPage() {
 
         {/* 5 — Portfolio Suggestions */}
         <motion.section {...sectionProps(4)}>
-          {portfolioData ? (
+          {portfolioData && portfolioData.length > 0 ? (
             <SuggestionsPanel suggestions={portfolioData} />
-          ) : portfolio.isLoading ? (
+          ) : !data ? (
             <SectionSkeleton lines={4} />
           ) : null}
         </motion.section>
 
         {/* 6 — Project Ideas */}
         <motion.section {...sectionProps(5)}>
-          {projectsData ? (
+          {projectsData && projectsData.length > 0 ? (
             <ProjectIdeas ideas={projectsData} />
-          ) : projects.isLoading ? (
+          ) : !data ? (
             <SectionSkeleton lines={4} />
           ) : null}
         </motion.section>
@@ -302,9 +317,9 @@ export default function ResultsPage() {
 
         {/* 15 — Career Roadmap */}
         <motion.section {...sectionProps(14)}>
-          {roadmapData ? (
+          {roadmapData && roadmapData.milestones?.length ? (
             <CareerRoadmapSection roadmap={roadmapData} />
-          ) : roadmap.isLoading ? (
+          ) : !data ? (
             <SectionSkeleton lines={5} />
           ) : null}
         </motion.section>

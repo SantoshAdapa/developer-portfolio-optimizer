@@ -64,7 +64,7 @@ export function PortfolioDepth({ depth }: PortfolioDepthProps) {
                 <span className="text-xs font-medium text-muted-foreground">{m.label}</span>
                 <span className="ml-auto text-sm font-semibold">{val}</span>
               </div>
-              <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+              <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
                 <motion.div
                   className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-500"
                   initial={{ width: 0 }}

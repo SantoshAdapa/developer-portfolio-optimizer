@@ -81,7 +81,7 @@ export function ScoreOverview({ score }: ScoreOverviewProps) {
                     {value}/100
                   </span>
                 </div>
-                <div className="h-2.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
                   <motion.div
                     className={cn(
                       "h-full rounded-full bg-gradient-to-r",

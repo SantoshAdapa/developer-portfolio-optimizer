@@ -11,15 +11,15 @@ interface SuggestionsPanelProps {
 
 const priorityStyles: Record<string, { badge: string; bar: string }> = {
   high: {
-    badge: "bg-red-500/15 text-red-300 border-red-500/20",
+    badge: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/20",
     bar: "bg-red-500",
   },
   medium: {
-    badge: "bg-amber-500/15 text-amber-300 border-amber-500/20",
+    badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/20",
     bar: "bg-amber-500",
   },
   low: {
-    badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
+    badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
     bar: "bg-emerald-500",
   },
 };

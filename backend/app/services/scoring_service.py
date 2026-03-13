@@ -21,16 +21,15 @@ GitHub-only), weights are redistributed proportionally among the
 applicable metrics so the overall score remains meaningful.
 """
 
-from __future__ import annotations
-
 import math
 import re
 
-from app.models.enums import CommitFrequency, Proficiency, SkillCategory
+from app.models.enums import CommitFrequency, Priority, Proficiency, SkillCategory
 from app.models.schemas import (
     AiInsights,
     CareerDirectionResult,
     CareerPathSuggestion,
+    CareerRoadmap,
     DeveloperScore,
     GitHubSummary,
     LearningResource,
@@ -38,14 +37,17 @@ from app.models.schemas import (
     LearningStep,
     MarketDemandResult,
     MarketSkillDemand,
+    Milestone,
     PortfolioDepthScore,
     ProgrammingLanguageScore,
+    ProjectIdea,
     RadarScores,
     ScoreBreakdown,
     Skill,
     SkillCategoryBreakdown,
     SkillGapResult,
     SkillMatch,
+    Suggestion,
 )
 from app.data.skill_normalization import normalize_skill
 from app.data.role_templates import get_skill_domain
@@ -4769,4 +4771,204 @@ def compute_career_direction(
         primary_direction=primary,
         career_paths=career_paths,
         summary=summary,
+    )
+
+
+# ── Local fallback recommendation generators ─────────────
+# These produce deterministic recommendations from the already-computed
+# analysis data so that Portfolio Improvements, Recommended Projects,
+# and Career Roadmap sections are always populated — even when the
+# Gemini API is unavailable or the API key is not configured.
+
+
+def generate_fallback_suggestions(
+    skill_gap: SkillGapResult,
+    skills: list[Skill],
+    career_direction: CareerDirectionResult | None,
+) -> list[Suggestion]:
+    """Build portfolio improvement suggestions from skill gap data."""
+
+    suggestions: list[Suggestion] = []
+
+    # 1. Suggest filling missing skills (high priority)
+    for gap_skill in skill_gap.missing_skills[:2]:
+        suggestions.append(
+            Suggestion(
+                area=gap_skill.skill,
+                current_state=f"Not detected in your portfolio (required at {gap_skill.required_level} level for {skill_gap.target_role}).",
+                recommendation=f"Add a project or certification demonstrating {gap_skill.skill} to strengthen your profile for {skill_gap.target_role} roles.",
+                priority=Priority.HIGH,
+                impact=f"Directly improves your {skill_gap.target_role} match from {skill_gap.match_percentage}%.",
+            )
+        )
+
+    # 2. Suggest leveling up partial skills (medium priority)
+    for partial_skill in skill_gap.partial_skills[:2]:
+        suggestions.append(
+            Suggestion(
+                area=partial_skill.skill,
+                current_state=f"Current proficiency: {partial_skill.proficiency} (target: {partial_skill.required_level}).",
+                recommendation=f"Build a more advanced project using {partial_skill.skill} to demonstrate deeper expertise.",
+                priority=Priority.MEDIUM,
+                impact=f"Levels up your {partial_skill.skill} proficiency toward {partial_skill.required_level}.",
+            )
+        )
+
+    # 3. Suggest broadening into adjacent career paths
+    if career_direction and len(career_direction.career_paths) > 1:
+        alt_path = career_direction.career_paths[1]
+        if alt_path.skills_to_develop:
+            skill_name = alt_path.skills_to_develop[0]
+            suggestions.append(
+                Suggestion(
+                    area=f"Explore {alt_path.role}",
+                    current_state=f"You have a {alt_path.fit_score}% fit for {alt_path.role}.",
+                    recommendation=f"Learning {skill_name} would open up {alt_path.role} opportunities.",
+                    priority=Priority.MEDIUM,
+                    impact=f"Expands career options into {alt_path.role}.",
+                )
+            )
+
+    return suggestions
+
+
+def generate_fallback_project_ideas(
+    skill_gap: SkillGapResult,
+    skills: list[Skill],
+    career_direction: CareerDirectionResult | None,
+) -> list[ProjectIdea]:
+    """Build project ideas from gap analysis and current skills."""
+
+    ideas: list[ProjectIdea] = []
+    user_techs = [s.name for s in skills[:5]]
+
+    # Project to fill the top gap skill
+    if skill_gap.missing_skills:
+        gap = skill_gap.missing_skills[0]
+        ideas.append(
+            ProjectIdea(
+                title=f"{gap.skill} Portfolio Project",
+                description=f"Build a project that demonstrates {gap.skill} skills, targeting {skill_gap.target_role} roles.",
+                tech_stack=[gap.skill] + user_techs[:2],
+                difficulty="intermediate",
+                estimated_time="2-4 weeks",
+                skills_developed=[
+                    f"Hands-on {gap.skill} experience",
+                    f"Demonstrates {gap.required_level}-level ability",
+                ],
+            )
+        )
+
+    # Project combining existing strengths
+    if len(user_techs) >= 2:
+        ideas.append(
+            ProjectIdea(
+                title="Full-Stack Integration Project",
+                description=f"Combine your existing strengths ({', '.join(user_techs[:3])}) into an end-to-end application.",
+                tech_stack=user_techs[:4],
+                difficulty="intermediate",
+                estimated_time="3-5 weeks",
+                skills_developed=[
+                    "End-to-end development",
+                    "System integration",
+                    "Documentation",
+                ],
+            )
+        )
+
+    # Open source contribution
+    if career_direction and career_direction.career_paths:
+        top_role = career_direction.career_paths[0]
+        ideas.append(
+            ProjectIdea(
+                title="Open Source Contribution",
+                description=f"Contribute to an open-source project in the {top_role.role} space to build visibility and credibility.",
+                tech_stack=top_role.matching_skills[:3]
+                if top_role.matching_skills
+                else user_techs[:3],
+                difficulty="advanced",
+                estimated_time="Ongoing",
+                skills_developed=[
+                    "Open source collaboration",
+                    "Code review",
+                    "Community building",
+                ],
+            )
+        )
+
+    return ideas
+
+
+def generate_fallback_roadmap(
+    skill_gap: SkillGapResult,
+    career_direction: CareerDirectionResult | None,
+    skills: list[Skill],
+) -> CareerRoadmap:
+    """Build a career roadmap from skill gap and career direction data."""
+
+    target_role = skill_gap.target_role
+    current_level = "Mid-Level Developer"
+
+    # Determine current level from skill proficiencies
+    advanced_count = sum(
+        1
+        for s in skills
+        if str(s.proficiency) == "advanced"
+        or (hasattr(s.proficiency, "value") and s.proficiency.value == "advanced")
+    )
+    if advanced_count >= 5:
+        current_level = "Senior Developer"
+    elif advanced_count >= 2:
+        current_level = "Mid-Level Developer"
+    else:
+        current_level = "Junior Developer"
+
+    if career_direction and career_direction.career_paths:
+        target_role = career_direction.career_paths[0].role
+
+    # Build milestones from skill gaps
+    missing_skills = [s.skill for s in skill_gap.missing_skills]
+    partial_skills = [s.skill for s in skill_gap.partial_skills]
+
+    milestones = [
+        Milestone(
+            timeframe="0-3 months",
+            goals=["Strengthen core skills and fill critical gaps"],
+            skills_to_learn=missing_skills[:3] if missing_skills else ["System Design"],
+            actions=[
+                f"Build a project demonstrating {missing_skills[0]}"
+                if missing_skills
+                else "Build a portfolio website",
+                "Complete an online course in your weakest area",
+                "Set up a consistent coding practice schedule",
+            ],
+        ),
+        Milestone(
+            timeframe="3-6 months",
+            goals=["Deepen specialization and build visibility"],
+            skills_to_learn=partial_skills[:2] + missing_skills[3:5]
+            if partial_skills
+            else ["Architecture", "Testing"],
+            actions=[
+                "Contribute to open-source projects",
+                "Write technical blog posts about your learning",
+                "Network with professionals in your target role",
+            ],
+        ),
+        Milestone(
+            timeframe="6-12 months",
+            goals=[f"Target readiness for {target_role} positions"],
+            skills_to_learn=["Technical Leadership", "System Design"],
+            actions=[
+                f"Apply for {target_role} positions",
+                "Prepare a strong portfolio showcasing your growth",
+                "Practice system design and technical interviews",
+            ],
+        ),
+    ]
+
+    return CareerRoadmap(
+        current_level=current_level,
+        target_role=target_role,
+        milestones=milestones,
     )

@@ -16,7 +16,7 @@ const Badge = React.forwardRef<
           "bg-primary text-primary-foreground": variant === "default",
           "bg-secondary text-secondary-foreground": variant === "secondary",
           "border border-input bg-background": variant === "outline",
-          "bg-gradient-to-r from-blue-500/20 to-violet-500/20 text-blue-300 border border-blue-500/20":
+          "bg-gradient-to-r from-blue-500/20 to-violet-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20":
             variant === "gradient",
         },
         className

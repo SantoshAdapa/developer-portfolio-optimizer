@@ -310,7 +310,7 @@ export default function ComparePage() {
           </Link>
         </Button>
         <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-blue-500/20 border border-white/[0.08]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-blue-500/20 border border-foreground/[0.08]">
             <GitCompareArrows className="h-5 w-5 text-violet-400" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">

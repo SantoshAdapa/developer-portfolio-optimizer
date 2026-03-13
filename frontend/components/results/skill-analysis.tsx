@@ -11,22 +11,22 @@ interface SkillAnalysisProps {
 }
 
 const levelColors: Record<string, string> = {
-  beginner: "bg-zinc-500/20 text-zinc-300 border-zinc-500/20",
-  intermediate: "bg-blue-500/20 text-blue-300 border-blue-500/20",
-  advanced: "bg-violet-500/20 text-violet-300 border-violet-500/20",
+  beginner: "bg-zinc-500/20 text-zinc-600 dark:text-zinc-300 border-zinc-500/20",
+  intermediate: "bg-blue-500/20 text-blue-600 dark:text-blue-300 border-blue-500/20",
+  advanced: "bg-violet-500/20 text-violet-600 dark:text-violet-300 border-violet-500/20",
 };
 
 const categoryColors: Record<string, string> = {
-  frontend: "bg-cyan-500/15 text-cyan-300 border-cyan-500/20",
-  backend: "bg-amber-500/15 text-amber-300 border-amber-500/20",
-  devops: "bg-orange-500/15 text-orange-300 border-orange-500/20",
-  database: "bg-green-500/15 text-green-300 border-green-500/20",
-  mobile: "bg-pink-500/15 text-pink-300 border-pink-500/20",
-  ai: "bg-purple-500/15 text-purple-300 border-purple-500/20",
-  "machine learning": "bg-purple-500/15 text-purple-300 border-purple-500/20",
-  cloud: "bg-sky-500/15 text-sky-300 border-sky-500/20",
-  testing: "bg-rose-500/15 text-rose-300 border-rose-500/20",
-  security: "bg-red-500/15 text-red-300 border-red-500/20",
+  frontend: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/20",
+  backend: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/20",
+  devops: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/20",
+  database: "bg-green-500/15 text-green-600 dark:text-green-300 border-green-500/20",
+  mobile: "bg-pink-500/15 text-pink-600 dark:text-pink-300 border-pink-500/20",
+  ai: "bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/20",
+  "machine learning": "bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/20",
+  cloud: "bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-500/20",
+  testing: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/20",
+  security: "bg-red-500/15 text-red-600 dark:text-red-300 border-red-500/20",
 };
 
 function getCategoryColor(cat: string): string {
@@ -34,7 +34,7 @@ function getCategoryColor(cat: string): string {
   for (const [k, v] of Object.entries(categoryColors)) {
     if (key.includes(k)) return v;
   }
-  return "bg-white/10 text-white/70 border-white/10";
+  return "bg-foreground/10 text-foreground/70 border-foreground/10";
 }
 
 const container = {
@@ -94,7 +94,7 @@ export function SkillAnalysis({ skills, programmingLanguages }: SkillAnalysisPro
                     {lang.proficiency}
                   </span>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--bar-track)" }}>
                   <motion.div
                     className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500"
                     initial={{ width: 0 }}
