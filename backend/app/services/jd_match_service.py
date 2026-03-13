@@ -278,7 +278,10 @@ def _match_experience_level(
     seen_partial: set[str] = set()
     unique_partial: list[dict] = []
     for p in below_prof_details:
-        if p["skill"].lower() not in seen_partial and p["skill"].lower() not in seen_matched:
+        if (
+            p["skill"].lower() not in seen_partial
+            and p["skill"].lower() not in seen_matched
+        ):
             seen_partial.add(p["skill"].lower())
             unique_partial.append(p)
 
