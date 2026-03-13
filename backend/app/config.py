@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     def max_file_size_bytes(self) -> int:
         return self.max_file_size_mb * 1024 * 1024
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 settings = Settings()

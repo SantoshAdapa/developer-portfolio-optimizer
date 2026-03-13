@@ -24,7 +24,7 @@ from app.data.skill_normalization import normalize_skill
 logger = logging.getLogger(__name__)
 
 # Cosine-similarity threshold to consider two skills a semantic match
-SIMILARITY_THRESHOLD = 0.82
+SIMILARITY_THRESHOLD = 0.70
 
 # Cache: skill_text → embedding vector (populated lazily)
 _embedding_cache: dict[str, list[float]] = {}

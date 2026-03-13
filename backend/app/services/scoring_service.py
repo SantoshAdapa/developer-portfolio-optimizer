@@ -411,6 +411,7 @@ _KNOWN_SKILLS: dict[str, list[str]] = {
         "shell",
         "bash",
         "powershell",
+        "r",
     ],
     "framework": [
         "react",
@@ -446,6 +447,40 @@ _KNOWN_SKILLS: dict[str, list[str]] = {
         "material ui",
         "jquery",
         "redux",
+        # ML/AI frameworks and concepts
+        "machine learning",
+        "deep learning",
+        "neural network",
+        "natural language processing",
+        "computer vision",
+        "reinforcement learning",
+        "tensorflow",
+        "pytorch",
+        "keras",
+        "scikit-learn",
+        "scikit learn",
+        "sklearn",
+        "xgboost",
+        "lightgbm",
+        "opencv",
+        "spacy",
+        "nltk",
+        "hugging face",
+        "huggingface",
+        "transformers",
+        "langchain",
+        "pandas",
+        "numpy",
+        "scipy",
+        "streamlit",
+        "gradio",
+        "feature engineering",
+        "model training",
+        "data processing",
+        "data pipeline",
+        "data visualization",
+        "statistics",
+        "mlops",
     ],
     "tool": [
         "docker",
@@ -1070,6 +1105,41 @@ _DISPLAY_NAME_MAP = {
     "google cloud": "Google Cloud",
     "c++": "C++",
     "c#": "C#",
+    # ML/AI display names
+    "machine learning": "Machine Learning",
+    "deep learning": "Deep Learning",
+    "neural network": "Neural Networks",
+    "natural language processing": "NLP",
+    "computer vision": "Computer Vision",
+    "reinforcement learning": "Reinforcement Learning",
+    "tensorflow": "TensorFlow",
+    "pytorch": "PyTorch",
+    "keras": "Keras",
+    "scikit-learn": "Scikit-Learn",
+    "scikit learn": "Scikit-Learn",
+    "sklearn": "Scikit-Learn",
+    "xgboost": "XGBoost",
+    "lightgbm": "LightGBM",
+    "opencv": "OpenCV",
+    "spacy": "spaCy",
+    "nltk": "NLTK",
+    "hugging face": "Hugging Face",
+    "huggingface": "Hugging Face",
+    "transformers": "Hugging Face",
+    "langchain": "LangChain",
+    "pandas": "Pandas",
+    "numpy": "NumPy",
+    "scipy": "SciPy",
+    "streamlit": "Streamlit",
+    "gradio": "Gradio",
+    "feature engineering": "Feature Engineering",
+    "model training": "Model Training",
+    "data processing": "Data Processing",
+    "data pipeline": "Data Processing",
+    "data visualization": "Data Visualization",
+    "statistics": "Statistics",
+    "mlops": "MLOps",
+    "r": "R",
 }
 
 
@@ -1078,13 +1148,41 @@ def _skill_present_in_text(skill_name: str, text_lower: str) -> bool:
 
     Uses word-boundary matching to avoid false positives like
     'express' matching 'expressed' or 'expression'.
+    Also checks hyphenated variations (e.g. 'scikit-learn' matches 'scikit learn').
     """
-    # Special characters in skill names need escaping for regex
+    from app.data.skill_normalization import SKILL_ALIASES
+
+    # Try the skill name itself first
     escaped = re.escape(skill_name)
-    # For multi-word skills (e.g. "spring boot"), match the full phrase
-    # For single-word skills, require word boundaries
     pattern = rf"(?<![\w\-]){escaped}(?![\w\-])"
-    return bool(re.search(pattern, text_lower))
+    if re.search(pattern, text_lower):
+        return True
+
+    # Try hyphenated ↔ space variations
+    if "-" in skill_name:
+        alt = skill_name.replace("-", " ")
+        if re.search(rf"(?<![\w\-]){re.escape(alt)}(?![\w\-])", text_lower):
+            return True
+    elif " " in skill_name:
+        alt = skill_name.replace(" ", "-")
+        if re.search(rf"(?<![\w\-]){re.escape(alt)}(?![\w\-])", text_lower):
+            return True
+
+    # Check all known aliases for this skill's canonical form
+    canonical = None
+    for canon_name, aliases in SKILL_ALIASES.items():
+        if skill_name in aliases or skill_name == canon_name.lower():
+            canonical = canon_name
+            break
+
+    if canonical:
+        for alias in SKILL_ALIASES[canonical]:
+            alias_escaped = re.escape(alias)
+            alias_pattern = rf"(?<![\w\-]){alias_escaped}(?![\w\-])"
+            if re.search(alias_pattern, text_lower):
+                return True
+
+    return False
 
 
 def extract_skills_from_github(github: GitHubSummary) -> list[Skill]:
@@ -1989,9 +2087,14 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
         # ML/AI
         "tensorflow": ("TensorFlow", "framework"),
         "pytorch": ("PyTorch", "framework"),
+        "torch": ("PyTorch", "framework"),
         "keras": ("Keras", "framework"),
-        "scikit-learn": ("Scikit-learn", "framework"),
+        "scikit-learn": ("Scikit-Learn", "framework"),
+        "scikit learn": ("Scikit-Learn", "framework"),
+        "sklearn": ("Scikit-Learn", "framework"),
+        "sk-learn": ("Scikit-Learn", "framework"),
         "opencv": ("OpenCV", "framework"),
+        "cv2": ("OpenCV", "framework"),
         "pandas": ("Pandas", "framework"),
         "numpy": ("NumPy", "framework"),
         "matplotlib": ("Matplotlib", "framework"),
@@ -2000,19 +2103,34 @@ def extract_skills_from_text(resume_text: str) -> list[Skill]:
         "xgboost": ("XGBoost", "framework"),
         "lightgbm": ("LightGBM", "framework"),
         "hugging face transformers": ("Hugging Face", "framework"),
+        "hugging face": ("Hugging Face", "framework"),
+        "huggingface": ("Hugging Face", "framework"),
+        "transformers": ("Hugging Face", "framework"),
         "langchain": ("LangChain", "framework"),
         "spacy": ("spaCy", "framework"),
         "nltk": ("NLTK", "framework"),
         "streamlit": ("Streamlit", "framework"),
         "gradio": ("Gradio", "framework"),
         "machine learning": ("Machine Learning", "framework"),
+        "ml": ("Machine Learning", "framework"),
         "deep learning": ("Deep Learning", "framework"),
+        "dl": ("Deep Learning", "framework"),
         "neural network": ("Neural Networks", "framework"),
         "computer vision": ("Computer Vision", "framework"),
-        "nlp": ("NLP", "framework"),
+        "nlp": ("Natural Language Processing", "framework"),
+        "natural language processing": ("Natural Language Processing", "framework"),
         "reinforcement learning": ("Reinforcement Learning", "framework"),
         "model training": ("Model Training", "framework"),
         "feature engineering": ("Feature Engineering", "framework"),
+        "feature extraction": ("Feature Engineering", "framework"),
+        "data processing": ("Data Processing", "framework"),
+        "data pipeline": ("Data Processing", "framework"),
+        "etl": ("Data Processing", "framework"),
+        "data visualization": ("Data Visualization", "framework"),
+        "statistics": ("Statistics", "framework"),
+        "statistical analysis": ("Statistics", "framework"),
+        "mlops": ("MLOps", "framework"),
+        "ml ops": ("MLOps", "framework"),
         # Frontend
         "react": ("React", "framework"),
         "next.js": ("Next.js", "framework"),
@@ -3658,15 +3776,15 @@ _ROLE_TEMPLATES: dict[str, dict[str, str]] = {
     },
     "ml_engineer": {
         "python": "advanced",
+        "machine learning": "advanced",
+        "deep learning": "intermediate",
         "tensorflow": "intermediate",
         "pytorch": "intermediate",
         "scikit-learn": "intermediate",
         "pandas": "intermediate",
-        "sql": "intermediate",
-        "docker": "intermediate",
-        "git": "intermediate",
-        "linux": "intermediate",
         "statistics": "intermediate",
+        "feature engineering": "intermediate",
+        "data processing": "intermediate",
     },
     "devops_engineer": {
         "docker": "advanced",
@@ -3862,7 +3980,8 @@ def _find_skill_match(
     resume_lower: str,
 ) -> str | None:
     """Find if a target skill matches any user skill (with aliases and normalization)."""
-    # Normalize both target and all skill map keys
+    from app.data.skill_normalization import SKILL_ALIASES
+
     target_lower = target.strip().lower()
     target_canon = normalize_skill(target).lower()
 
@@ -3879,31 +3998,18 @@ def _find_skill_match(
         if normalize_skill(key).lower() == target_canon:
             return val
 
-    # Legacy alias matching (kept for backward compat)
-    aliases: dict[str, list[str]] = {
-        "node.js": ["nodejs", "node"],
-        "react": ["react.js", "reactjs"],
-        "vue": ["vue.js", "vuejs"],
-        "postgresql": ["postgres"],
-        "kubernetes": ["k8s"],
-        "testing": ["unit test", "pytest", "jest", "mocha", "testing"],
-        "rest api": ["rest", "restful", "api"],
-        "ci/cd": ["github actions", "jenkins", "gitlab ci", "circleci"],
-        "bash": ["shell"],
-        "monitoring": ["prometheus", "grafana", "datadog"],
-        "statistics": ["data analysis", "data science"],
-        "responsive design": ["css", "tailwind", "bootstrap"],
-    }
+    # Use centralized SKILL_ALIASES for comprehensive alias matching
+    canonical = normalize_skill(target)
+    if canonical in SKILL_ALIASES:
+        for alias in SKILL_ALIASES[canonical]:
+            if alias.lower() in skill_map:
+                return skill_map[alias.lower()]
 
+    # Check resume text as last resort using known alias variants
     check_targets = [target_lower]
-    if target_lower in aliases:
-        check_targets.extend(aliases[target_lower])
+    if canonical in SKILL_ALIASES:
+        check_targets.extend(a.lower() for a in SKILL_ALIASES[canonical])
 
-    for alias in check_targets:
-        if alias in skill_map:
-            return skill_map[alias]
-
-    # Check resume text as last resort
     for alias in check_targets:
         if len(alias) > 2 and alias in resume_lower:
             return "beginner"

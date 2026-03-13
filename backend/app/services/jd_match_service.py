@@ -118,13 +118,20 @@ async def match_job_description_semantic(
                     }
                 )
 
-    # --- Scoring ---
+    # --- Scoring (weighted) ---
+    # Required skills weight = 3, Preferred skills weight = 2
+    REQUIRED_WEIGHT = 3
+    PREFERRED_WEIGHT = 2
     total_req = len(required_skills)
     total_pref = len(preferred_skills)
-    req_score = (len(matched) + len(partial) * 0.5) / total_req if total_req else 0
-    pref_score = len(pref_matched) / total_pref if total_pref else 0
-    # Required skills weight 80%, preferred 20%
-    pct = int((req_score * 80 + pref_score * 20))
+
+    total_weight = total_req * REQUIRED_WEIGHT + total_pref * PREFERRED_WEIGHT
+    matched_weight = (
+        (len(matched) * REQUIRED_WEIGHT)
+        + (len(partial) * 0.5 * REQUIRED_WEIGHT)
+        + (len(pref_matched) * PREFERRED_WEIGHT)
+    )
+    pct = int((matched_weight / total_weight) * 100) if total_weight else 0
     pct = max(0, min(100, pct))
 
     # Confidence
@@ -218,24 +225,19 @@ def _match_experience_level(
 ) -> dict:
     """Compare a developer's profile against an experience-level expectation.
 
-    Uses skill count and proficiency level to compute a meaningful score
-    rather than always returning 100% confidence.
+    Uses skill count and proficiency level to compute a meaningful score.
+    Only counts unique skills (by canonical name). Skills below the expected
+    proficiency are classified as partial matches.
     """
     lvl = EXPERIENCE_LEVELS[level_key]
     expected_count = lvl["expected_skills"]
     expected_prof = lvl["expected_proficiency"]
 
-    dev_names = [normalize_skill(s.name) for s in developer_skills]
-    unique_skills = list(set(dev_names))
-
-    # Count how many skills meet the expected proficiency
     prof_rank_map = {"beginner": 0, "intermediate": 1, "advanced": 2}
     expected_rank = prof_rank_map.get(expected_prof, 0)
 
-    meeting_prof = 0
-    matched_details: list[dict] = []
-    below_prof_details: list[dict] = []
-
+    # Deduplicate skills by canonical name, keeping highest proficiency
+    best_skill: dict[str, tuple[Skill, int]] = {}
     for s in developer_skills:
         p = (
             s.proficiency.value
@@ -243,72 +245,66 @@ def _match_experience_level(
             else str(s.proficiency)
         )
         skill_rank = prof_rank_map.get(p, 0)
-        canon = normalize_skill(s.name)
+        canon = normalize_skill(s.name).lower()
+        if canon not in best_skill or skill_rank > best_skill[canon][1]:
+            best_skill[canon] = (s, skill_rank)
 
+    matched_details: list[dict] = []
+    below_prof_details: list[dict] = []
+
+    for canon, (s, skill_rank) in best_skill.items():
+        p = (
+            s.proficiency.value
+            if hasattr(s.proficiency, "value")
+            else str(s.proficiency)
+        )
+        entry = {
+            "skill": normalize_skill(s.name),
+            "status": "matched" if skill_rank >= expected_rank else "partial",
+            "proficiency": p,
+            "required_level": expected_prof,
+            "match_type": "exact",
+        }
         if skill_rank >= expected_rank:
-            meeting_prof += 1
-            matched_details.append(
-                {
-                    "skill": canon,
-                    "status": "matched",
-                    "proficiency": p,
-                    "required_level": expected_prof,
-                    "match_type": "exact",
-                }
-            )
+            matched_details.append(entry)
         else:
-            below_prof_details.append(
-                {
-                    "skill": canon,
-                    "status": "partial",
-                    "proficiency": p,
-                    "required_level": expected_prof,
-                    "match_type": "exact",
-                }
-            )
+            below_prof_details.append(entry)
 
-    # Deduplicate by skill name
-    seen_matched: set[str] = set()
-    unique_matched: list[dict] = []
-    for m in matched_details:
-        if m["skill"].lower() not in seen_matched:
-            seen_matched.add(m["skill"].lower())
-            unique_matched.append(m)
+    unique_count = len(best_skill)
+    meeting_prof = len(matched_details)
 
-    seen_partial: set[str] = set()
-    unique_partial: list[dict] = []
-    for pd in below_prof_details:
-        if (
-            pd["skill"].lower() not in seen_partial
-            and pd["skill"].lower() not in seen_matched
-        ):
-            seen_partial.add(pd["skill"].lower())
-            unique_partial.append(pd)
-
-    skill_count_score = min(100, int(len(unique_skills) / max(expected_count, 1) * 100))
-    prof_score = min(100, int(meeting_prof / max(expected_count, 1) * 100))
+    # Skill count score: what fraction of expected skills do you have?
+    skill_count_score = min(100, int(unique_count / max(expected_count, 1) * 100))
+    # Proficiency score: what fraction of your skills meet the bar?
+    prof_score = (
+        min(100, int(meeting_prof / max(unique_count, 1) * 100))
+        if unique_count > 0
+        else 0
+    )
+    # Combined: 50% breadth + 50% proficiency depth
     pct = int(skill_count_score * 0.5 + prof_score * 0.5)
     pct = max(0, min(100, pct))
 
     confidence = "high" if pct >= 70 else ("medium" if pct >= 40 else "low")
 
+    dev_names = [normalize_skill(s.name) for s in developer_skills]
     summary = (
-        f"For {lvl['label']} level: you have {len(unique_skills)} unique skills "
+        f"For {lvl['label']} level: you have {unique_count} unique skills "
         f"(expected ~{expected_count}). "
         f"{meeting_prof} skills meet the {expected_prof} proficiency bar."
     )
 
     return {
         "match_percentage": pct,
-        "matched_skills": unique_matched,
+        "matched_skills": matched_details,
         "missing_skills": [],
-        "partial_skills": unique_partial,
+        "partial_skills": below_prof_details,
         "preferred_matched": [],
         "confidence": confidence,
         "label": lvl["label"],
         "domain_distribution": compute_domain_distribution(dev_names),
         "summary": summary,
-        "recommended_skills": [p["skill"] for p in unique_partial[:5]],
+        "recommended_skills": [p["skill"] for p in below_prof_details[:5]],
     }
 
 
