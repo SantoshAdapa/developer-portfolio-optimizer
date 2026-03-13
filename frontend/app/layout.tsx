@@ -6,6 +6,7 @@ import { QueryProvider } from "@/lib/query-provider";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { ParticleBackground } from "@/components/layout/particle-background";
 import { siteConfig } from "@/lib/constants";
 
 const inter = Inter({
@@ -39,7 +40,8 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <QueryProvider>
-            {/* Animated floating gradient orbs */}
+            {/* Interactive particle network + gradient orbs */}
+            <ParticleBackground />
             <div className="bg-orbs"><span /></div>
 
             <div className="relative flex min-h-screen flex-col">
