@@ -16,12 +16,15 @@ export function ParticleBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: -1000, y: -1000 });
+  const lerpMouseRef = useRef({ x: -1000, y: -1000 });
   const animFrameRef = useRef<number>(0);
   const { theme } = useTheme();
 
-  const PARTICLE_COUNT = 80;
-  const CONNECTION_DISTANCE = 150;
+  const PARTICLE_COUNT = 60;
+  const CONNECTION_DISTANCE = 140;
   const MOUSE_RADIUS = 200;
+  const GLOW_RADIUS = 350;
+  const LERP_SPEED = 0.04;
 
   const initParticles = useCallback((width: number, height: number) => {
     const particles: Particle[] = [];
@@ -29,10 +32,10 @@ export function ParticleBackground() {
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.6,
-        vy: (Math.random() - 0.5) * 0.6,
-        radius: Math.random() * 1.5 + 0.5,
-        opacity: Math.random() * 0.5 + 0.3,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        radius: Math.random() * 1.2 + 0.4,
+        opacity: Math.random() * 0.4 + 0.2,
       });
     }
     particlesRef.current = particles;
@@ -75,6 +78,40 @@ export function ParticleBackground() {
       const particleColor = isDark ? "180, 200, 255" : "30, 60, 120";
       const lineColor = isDark ? "140, 160, 255" : "60, 80, 160";
       const mouse = mouseRef.current;
+      const lerpMouse = lerpMouseRef.current;
+
+      // Smoothly interpolate glow position toward mouse
+      if (mouse.x > 0 && mouse.y > 0) {
+        if (lerpMouse.x < -500) {
+          lerpMouse.x = mouse.x;
+          lerpMouse.y = mouse.y;
+        } else {
+          lerpMouse.x += (mouse.x - lerpMouse.x) * LERP_SPEED;
+          lerpMouse.y += (mouse.y - lerpMouse.y) * LERP_SPEED;
+        }
+      } else {
+        lerpMouse.x = -1000;
+        lerpMouse.y = -1000;
+      }
+
+      // Draw ambient cursor glow
+      if (lerpMouse.x > -500 && lerpMouse.y > -500) {
+        const glow = ctx.createRadialGradient(
+          lerpMouse.x, lerpMouse.y, 0,
+          lerpMouse.x, lerpMouse.y, GLOW_RADIUS
+        );
+        if (isDark) {
+          glow.addColorStop(0, "rgba(100, 120, 255, 0.07)");
+          glow.addColorStop(0.5, "rgba(120, 100, 255, 0.03)");
+          glow.addColorStop(1, "rgba(100, 120, 255, 0)");
+        } else {
+          glow.addColorStop(0, "rgba(80, 100, 200, 0.045)");
+          glow.addColorStop(0.5, "rgba(100, 80, 200, 0.02)");
+          glow.addColorStop(1, "rgba(80, 100, 200, 0)");
+        }
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
       const particles = particlesRef.current;
 
@@ -87,8 +124,8 @@ export function ParticleBackground() {
         if (dist < MOUSE_RADIUS && dist > 0) {
           const force = (MOUSE_RADIUS - dist) / MOUSE_RADIUS;
           const angle = Math.atan2(dy, dx);
-          p.vx += Math.cos(angle) * force * 0.4;
-          p.vy += Math.sin(angle) * force * 0.4;
+          p.vx += Math.cos(angle) * force * 0.3;
+          p.vy += Math.sin(angle) * force * 0.3;
         }
 
         // Damping
@@ -97,9 +134,9 @@ export function ParticleBackground() {
 
         // Clamp speed
         const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-        if (speed > 2) {
-          p.vx = (p.vx / speed) * 2;
-          p.vy = (p.vy / speed) * 2;
+        if (speed > 1.5) {
+          p.vx = (p.vx / speed) * 1.5;
+          p.vy = (p.vy / speed) * 1.5;
         }
 
         p.x += p.vx;
@@ -126,7 +163,7 @@ export function ParticleBackground() {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < CONNECTION_DISTANCE) {
-            const opacity = (1 - dist / CONNECTION_DISTANCE) * (isDark ? 0.15 : 0.08);
+            const opacity = (1 - dist / CONNECTION_DISTANCE) * (isDark ? 0.12 : 0.06);
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
@@ -145,12 +182,12 @@ export function ParticleBackground() {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < MOUSE_RADIUS) {
-            const opacity = (1 - dist / MOUSE_RADIUS) * (isDark ? 0.25 : 0.15);
+            const opacity = (1 - dist / MOUSE_RADIUS) * (isDark ? 0.2 : 0.1);
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(mouse.x, mouse.y);
             ctx.strokeStyle = `rgba(${lineColor}, ${opacity})`;
-            ctx.lineWidth = 0.8;
+            ctx.lineWidth = 0.6;
             ctx.stroke();
           }
         }

@@ -179,6 +179,30 @@
   background: hsl(217 91% 60% / 0.3);
 }
 
+/* ── Technical grid overlay ─────────────────────────────── */
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  pointer-events: none;
+}
+.dark .bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 100%);
+}
+:root:not(.dark) .bg-grid {
+  background-image:
+    linear-gradient(rgba(0, 20, 80, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 20, 80, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 100%);
+}
+
 /* ── Floating gradient background orbs ──────────────────── */
 @keyframes float-orb-a {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -201,6 +225,12 @@
   z-index: -10;
   pointer-events: none;
   overflow: hidden;
+}
+.dark .bg-orbs {
+  background: radial-gradient(ellipse 100% 55% at 50% -10%, hsl(224 60% 12% / 0.5) 0%, transparent 70%);
+}
+:root:not(.dark) .bg-orbs {
+  background: radial-gradient(ellipse 100% 55% at 50% -10%, hsl(217 60% 90% / 0.35) 0%, transparent 70%);
 }
 .bg-orbs::before,
 .bg-orbs::after,

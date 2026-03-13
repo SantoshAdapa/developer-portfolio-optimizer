@@ -40,9 +40,10 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <QueryProvider>
-            {/* Interactive particle network + gradient orbs */}
+            {/* Interactive particle network + gradient orbs + grid */}
             <ParticleBackground />
             <div className="bg-orbs"><span /></div>
+            <div className="bg-grid" aria-hidden="true" />
 
             <div className="relative flex min-h-screen flex-col">
               <Navbar />
