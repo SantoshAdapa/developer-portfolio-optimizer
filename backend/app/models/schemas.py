@@ -365,7 +365,7 @@ class JDMatchSkill(BaseModel):
 
 
 class JDMatchResponse(BaseModel):
-    analysis_id: str
+    analysis_id: str = ""
     match_percentage: int = Field(ge=0, le=100)
     matched_skills: list[JDMatchSkill] = []
     missing_skills: list[JDMatchSkill] = []
@@ -375,6 +375,10 @@ class JDMatchResponse(BaseModel):
     label: str = ""
     domain_distribution: dict[str, int] = Field(default_factory=dict)
     summary: str = ""
+    recommended_skills: list[str] = Field(
+        default_factory=list,
+        description="Skills recommended to learn based on missing gaps",
+    )
 
 
 class RoleTemplateInfo(BaseModel):

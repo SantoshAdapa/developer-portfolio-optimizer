@@ -140,6 +140,11 @@ async def match_job_description_semantic(
 
     summary = _build_summary(pct, matched, partial, missing, pref_matched, label)
 
+    # Recommended skills to learn (from missing + partial)
+    recommended = [s["skill"] for s in missing[:10]]
+    if partial:
+        recommended.extend(s["skill"] for s in partial[:5])
+
     return {
         "match_percentage": pct,
         "matched_skills": matched,
@@ -150,6 +155,7 @@ async def match_job_description_semantic(
         "label": label,
         "domain_distribution": domain_dist,
         "summary": summary,
+        "recommended_skills": recommended,
     }
 
 
@@ -199,6 +205,7 @@ def match_job_description(
         "label": "Job Description",
         "domain_distribution": compute_domain_distribution(dev_skill_names),
         "summary": summary,
+        "recommended_skills": [s["skill"] for s in missing[:10]],
     }
 
 
@@ -209,7 +216,11 @@ def _match_experience_level(
     developer_skills: list[Skill],
     level_key: str,
 ) -> dict:
-    """Compare a developer's profile against an experience-level expectation."""
+    """Compare a developer's profile against an experience-level expectation.
+
+    Uses skill count and proficiency level to compute a meaningful score
+    rather than always returning 100% confidence.
+    """
     lvl = EXPERIENCE_LEVELS[level_key]
     expected_count = lvl["expected_skills"]
     expected_prof = lvl["expected_proficiency"]
@@ -222,14 +233,54 @@ def _match_experience_level(
     expected_rank = prof_rank_map.get(expected_prof, 0)
 
     meeting_prof = 0
+    matched_details: list[dict] = []
+    below_prof_details: list[dict] = []
+
     for s in developer_skills:
         p = (
             s.proficiency.value
             if hasattr(s.proficiency, "value")
             else str(s.proficiency)
         )
-        if prof_rank_map.get(p, 0) >= expected_rank:
+        skill_rank = prof_rank_map.get(p, 0)
+        canon = normalize_skill(s.name)
+
+        if skill_rank >= expected_rank:
             meeting_prof += 1
+            matched_details.append(
+                {
+                    "skill": canon,
+                    "status": "matched",
+                    "proficiency": p,
+                    "required_level": expected_prof,
+                    "match_type": "exact",
+                }
+            )
+        else:
+            below_prof_details.append(
+                {
+                    "skill": canon,
+                    "status": "partial",
+                    "proficiency": p,
+                    "required_level": expected_prof,
+                    "match_type": "exact",
+                }
+            )
+
+    # Deduplicate by skill name
+    seen_matched: set[str] = set()
+    unique_matched: list[dict] = []
+    for m in matched_details:
+        if m["skill"].lower() not in seen_matched:
+            seen_matched.add(m["skill"].lower())
+            unique_matched.append(m)
+
+    seen_partial: set[str] = set()
+    unique_partial: list[dict] = []
+    for p in below_prof_details:
+        if p["skill"].lower() not in seen_partial and p["skill"].lower() not in seen_matched:
+            seen_partial.add(p["skill"].lower())
+            unique_partial.append(p)
 
     skill_count_score = min(100, int(len(unique_skills) / max(expected_count, 1) * 100))
     prof_score = min(100, int(meeting_prof / max(expected_count, 1) * 100))
@@ -246,14 +297,15 @@ def _match_experience_level(
 
     return {
         "match_percentage": pct,
-        "matched_skills": [],
+        "matched_skills": unique_matched,
         "missing_skills": [],
-        "partial_skills": [],
+        "partial_skills": unique_partial,
         "preferred_matched": [],
         "confidence": confidence,
         "label": lvl["label"],
         "domain_distribution": compute_domain_distribution(dev_names),
         "summary": summary,
+        "recommended_skills": [p["skill"] for p in unique_partial[:5]],
     }
 
 
@@ -354,4 +406,5 @@ def _empty_result(summary: str) -> dict:
         "label": "",
         "domain_distribution": {},
         "summary": summary,
+        "recommended_skills": [],
     }
